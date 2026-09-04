@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pcb3d"
+version = "0.1.0"
+description = "Generate 3D-printed PCB bases from KiCad-oriented DXF files"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "ezdxf>=1.1",
+  "PyYAML>=6.0",
+  "Flask>=2.3",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=7.0"]
+
+[project.scripts]
+pcb3d = "pcb3d.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

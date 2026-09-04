@@ -1,0 +1,992 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PCB3D Studio &mdash; 3D Printed PCB Generator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+
+  <!-- Top Navigation Header -->
+  <header>
+    <div class="brand">
+      <div class="brand-icon">
+        <span class="material-symbols-outlined">layers</span>
+      </div>
+      <div class="brand-text">
+        <h1>PCB3D Studio <span class="brand-badge">v0.1</span></h1>
+        <p>KiCad DXF to 3D Printable PCB Substrate</p>
+      </div>
+    </div>
+    <div class="header-links">
+      <button class="btn-secondary-link" id="btn-open-help" title="Export instructions from KiCad">
+        <span class="material-symbols-outlined" style="font-size: 16px;">help</span>
+        KiCad Export Guide
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Application Workspace -->
+  <main>
+    <!-- Left Configuration Sidebar -->
+    <aside class="sidebar">
+      <form id="generate-form" enctype="multipart/form-data">
+        <!-- DXF Upload Card -->
+        <div class="card">
+          <div class="card-title">
+            <span class="material-symbols-outlined">description</span>
+            Board DXF File
+          </div>
+
+          <div class="dropzone" id="dropzone">
+            <div class="dropzone-icon">
+              <span class="material-symbols-outlined">upload_file</span>
+            </div>
+            <div class="dropzone-text">Drop your DXF file here</div>
+            <div class="dropzone-hint">Supports KiCad R2010/R2013 DXF (.dxf)</div>
+            <input type="file" id="dxf-file-input" name="dxf" accept=".dxf" required>
+          </div>
+
+          <div class="file-badge" id="file-badge">
+            <div class="file-info">
+              <span class="material-symbols-outlined" style="color: #60a5fa; font-size: 18px;">insert_drive_file</span>
+              <div>
+                <div class="file-name" id="file-name-display">board.dxf</div>
+                <div class="file-size" id="file-size-display">0 KB</div>
+              </div>
+            </div>
+            <button type="button" class="btn-remove-file" id="btn-remove-file" title="Remove file">
+              <span class="material-symbols-outlined">close</span>
+            </button>
+          </div>
+
+          <div class="sample-menu-wrap">
+            <div class="sample-menu-header">
+              <span class="sample-menu-label">
+                <span class="material-symbols-outlined">developer_board</span>
+                Preset Circuit Samples
+              </span>
+            </div>
+            <div class="sample-control-row">
+              <div class="sample-select-wrapper">
+                <select id="sample-select" class="sample-select" aria-label="Select sample circuit board">
+                  <option value="sample_pcb">Sample Circuit Board (DIP-8)</option>
+                </select>
+                <span class="material-symbols-outlined select-chevron">arrow_drop_down</span>
+              </div>
+              <button type="button" class="btn-load-sample" id="btn-load-sample" title="Load selected sample board">
+                <span class="material-symbols-outlined">bolt</span>
+                Load
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Print Parameters Card -->
+        <div class="card">
+          <div class="card-title">
+            <span class="material-symbols-outlined">tune</span>
+            Slicing & Geometry Parameters
+          </div>
+
+          <div class="param-grid">
+            <div class="input-group">
+              <div class="input-label-row">
+                <label class="input-label" for="base_thickness">Base Thickness</label>
+              </div>
+              <div class="input-wrapper">
+                <input class="input-control" type="number" id="base_thickness" name="base_thickness" step="0.1" min="0.2" value="1.6" required>
+                <span class="unit-badge">mm</span>
+              </div>
+            </div>
+
+            <div class="input-group">
+              <div class="input-label-row">
+                <label class="input-label" for="trace_height">Trace Height</label>
+              </div>
+              <div class="input-wrapper">
+                <input class="input-control" type="number" id="trace_height" name="trace_height" step="0.05" min="0.1" value="0.4" required>
+                <span class="unit-badge">mm</span>
+              </div>
+            </div>
+
+            <div class="input-group">
+              <div class="input-label-row">
+                <label class="input-label" for="trace_width">Trace Width</label>
+              </div>
+              <div class="input-wrapper">
+                <input class="input-control" type="number" id="trace_width" name="trace_width" step="0.05" min="0.1" value="0.4" required>
+                <span class="unit-badge">mm</span>
+              </div>
+            </div>
+
+            <div class="input-group">
+              <div class="input-label-row">
+                <label class="input-label" for="outline_margin">Outline Margin</label>
+              </div>
+              <div class="input-wrapper">
+                <input class="input-control" type="number" id="outline_margin" name="outline_margin" step="0.1" min="0.0" value="0.0">
+                <span class="unit-badge">mm</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="checkbox-group">
+            <label class="checkbox-label" for="toggle-m4-holes">
+              <input type="checkbox" id="toggle-m4-holes" checked>
+              <span>Include corner M4 mounting holes (&Oslash;4.4mm)</span>
+            </label>
+          </div>
+
+          <!-- Advanced Collapsible Settings -->
+          <details class="advanced-panel">
+            <summary>
+              <span>Advanced Layer Mapping & Engine</span>
+              <span class="material-symbols-outlined">expand_more</span>
+            </summary>
+            <div class="advanced-content">
+              <div class="input-group">
+                <label class="input-label" for="mapping-yaml">Custom Layer Mapping (YAML)</label>
+                <textarea class="yaml-textarea" id="mapping-yaml" name="mapping" spellcheck="false" placeholder="layers:
+  outline: Edge.Cuts
+  traces: F.Cu
+  holes: [NPTH, Drill]"></textarea>
+              </div>
+              <div class="input-group">
+                <label class="input-label" for="openscad-bin">OpenSCAD Executable</label>
+                <input class="input-control" type="text" id="openscad-bin" name="openscad" value="openscad" placeholder="openscad">
+              </div>
+            </div>
+          </details>
+
+          <!-- Submit Button -->
+          <button type="submit" class="btn-generate" id="btn-generate">
+            <span class="material-symbols-outlined">bolt</span>
+            Generate 3D Model
+          </button>
+        </div>
+
+        <!-- Download & Result Card -->
+        <div class="download-card" id="download-card">
+          <div class="card-title" style="color: #34d399;">
+            <span class="material-symbols-outlined" style="color: #10b981; font-size: 18px;">check_circle</span>
+            STL Ready for 3D Printing
+          </div>
+          <p style="font-size: 0.8125rem; color: #a7f3d0;">The 3D model was compiled with OpenSCAD and is ready to slice in PrusaSlicer, Bambu Studio, or Cura.</p>
+          <a class="btn-download" id="download-stl-link" href="#" download>
+            <span class="material-symbols-outlined">download</span>
+            Download .STL File
+          </a>
+        </div>
+
+        <!-- Error Notification Banner -->
+        <div class="alert-error" id="alert-error">
+          <span class="material-symbols-outlined">error</span>
+          <div id="error-message">An error occurred</div>
+        </div>
+      </form>
+    </aside>
+
+    <!-- Right 3D Interactive Viewport -->
+    <section class="viewport-container" id="viewport-container">
+      <div id="viewer"></div>
+
+      <!-- Top Toolbar -->
+      <div class="viewport-toolbar">
+        <!-- View Camera Presets -->
+        <div class="toolbar-group">
+          <button type="button" class="toolbar-btn" id="btn-view-iso" title="Isometric Perspective">Iso</button>
+          <button type="button" class="toolbar-btn" id="btn-view-top" title="Top View">Top</button>
+          <button type="button" class="toolbar-btn" id="btn-view-front" title="Front Edge View">Front</button>
+          <button type="button" class="toolbar-btn" id="btn-view-reset" title="Fit to Screen">Center</button>
+        </div>
+
+        <!-- Material Presets & Toggles -->
+        <div class="toolbar-group">
+          <button type="button" class="color-swatch-btn active" data-theme="pcb-green" style="background: #1b5e20;" title="Classic PCB Green"></button>
+          <button type="button" class="color-swatch-btn" data-theme="stealth-black" style="background: #1c1917;" title="Stealth Matte Black"></button>
+          <button type="button" class="color-swatch-btn" data-theme="tech-blue" style="background: #0284c7;" title="Technical Solder Blue"></button>
+          <button type="button" class="color-swatch-btn" data-theme="fr4-yellow" style="background: #b45309;" title="FR4 Raw Substrate"></button>
+          <button type="button" class="color-swatch-btn" data-theme="clay-white" style="background: #e2e8f0;" title="Studio CAD White"></button>
+          <button type="button" class="color-swatch-btn" data-theme="normals" style="background: linear-gradient(135deg, #ef4444, #10b981, #3b82f6); border-radius: 50%;" title="Surface Normals"></button>
+
+          <div style="width: 1px; height: 16px; background: var(--border-subtle); margin: 0 2px;"></div>
+
+          <button type="button" class="toolbar-btn" id="btn-toggle-wireframe" title="Toggle Wireframe">
+            <span class="material-symbols-outlined" style="font-size: 16px;">grid_4x4</span>
+          </button>
+
+          <button type="button" class="toolbar-btn" id="btn-toggle-grid" title="Toggle Build Plate Grid">
+            <span class="material-symbols-outlined" style="font-size: 16px;">grid_on</span>
+          </button>
+
+          <button type="button" class="toolbar-btn" id="btn-toggle-rotate" title="Turntable Auto-Rotate">
+            <span class="material-symbols-outlined" style="font-size: 16px;">360</span>
+          </button>
+
+          <button type="button" class="toolbar-btn" id="btn-fullscreen" title="Toggle Fullscreen">
+            <span class="material-symbols-outlined" style="font-size: 16px;">fullscreen</span>
+          </button>
+
+          <div style="width: 1px; height: 16px; background: var(--border-subtle); margin: 0 2px;"></div>
+
+          <button type="button" class="btn-unit-toggle" id="btn-unit-toggle" title="Switch between metric and imperial units">mm</button>
+        </div>
+      </div>
+
+      <!-- HUD Stats Dimensions Badge -->
+      <div class="hud-badge" id="hud-badge">
+        <div class="hud-row"><span>DIMENSIONS:</span> <span class="hud-val" id="hud-dim">0 x 0 x 0 mm</span></div>
+        <div class="hud-row"><span>TRIANGLES:</span> <span class="hud-val" id="hud-triangles">0</span></div>
+      </div>
+
+      <!-- Navigation Hints -->
+      <div class="nav-hints">
+        <span><kbd>LMB</kbd> Rotate</span>
+        <span><kbd>RMB</kbd> Pan</span>
+        <span><kbd>Scroll</kbd> Zoom</span>
+      </div>
+
+      <!-- Empty State -->
+      <div class="empty-overlay" id="empty-overlay">
+        <span class="material-symbols-outlined empty-illustration">view_in_ar</span>
+        <h2 class="empty-title">Ready for Circuit Geometry</h2>
+        <p class="empty-desc">Drop your KiCad exported DXF board file on the left panel or click "Try Sample Circuit Board" to preview in interactive 3D.</p>
+      </div>
+
+      <!-- Loading State Overlay -->
+      <div class="loading-overlay" id="loading-overlay">
+        <div class="spinner-ring"></div>
+        <div class="loading-title">Generating 3D Printable PCB</div>
+        <div class="loading-step" id="loading-step">Running OpenSCAD geometry engine...</div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Help / Instructions Modal Dialog -->
+  <dialog class="modal" id="help-modal">
+    <div class="modal-header">
+      <div class="modal-title">Exporting DXF from KiCad</div>
+      <button class="btn-close-modal" id="btn-close-help">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <div class="modal-body">
+      <p>To export compatible DXF files in KiCad PCB Editor:</p>
+      <ol>
+        <li>Open your board in <strong>KiCad PCB Editor</strong>.</li>
+        <li>Go to <strong>File &rarr; Export &rarr; DXF...</strong></li>
+        <li>Under <em>Layers to export</em>, check:
+          <br>&bull; <code>Edge.Cuts</code> (Board outline)
+          <br>&bull; <code>F.Cu</code> (Front copper traces)
+          <br>&bull; <code>NPTH</code> / <code>Drill</code> (Mounting & through holes)
+        </li>
+        <li>Ensure <strong>DXF Format</strong> is set to <strong>AutoCAD 2010</strong> or later.</li>
+        <li>Ensure <strong>Drill / Pad representation</strong> has outline or center holes enabled.</li>
+        <li>Click <strong>Export</strong> and drag the generated <code>.dxf</code> directly into PCB3D!</li>
+      </ol>
+    </div>
+  </dialog>
+
+  <!-- Application Logic with Three.js & OrbitControls -->
+  <script type="module">
+    import * as THREE from 'three';
+    import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+    // DOM Elements
+    const form = document.getElementById('generate-form');
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('dxf-file-input');
+    const fileBadge = document.getElementById('file-badge');
+    const fileNameDisplay = document.getElementById('file-name-display');
+    const fileSizeDisplay = document.getElementById('file-size-display');
+    const btnRemoveFile = document.getElementById('btn-remove-file');
+    const btnLoadSample = document.getElementById('btn-load-sample');
+    const toggleM4Holes = document.getElementById('toggle-m4-holes');
+    const btnGenerate = document.getElementById('btn-generate');
+    const downloadCard = document.getElementById('download-card');
+    const downloadStlLink = document.getElementById('download-stl-link');
+    const alertError = document.getElementById('alert-error');
+    const errorMessage = document.getElementById('error-message');
+    const emptyOverlay = document.getElementById('empty-overlay');
+    const loadingOverlay = document.getElementById('loading-overlay');
+    const loadingStep = document.getElementById('loading-step');
+    const hudBadge = document.getElementById('hud-badge');
+    const hudDim = document.getElementById('hud-dim');
+    const hudTriangles = document.getElementById('hud-triangles');
+    const viewerContainer = document.getElementById('viewport-container');
+    const helpModal = document.getElementById('help-modal');
+    const btnOpenHelp = document.getElementById('btn-open-help');
+    const btnCloseHelp = document.getElementById('btn-close-help');
+
+    // Viewport & Three.js State
+    let scene, camera, renderer, labelRenderer, controls, gridHelper;
+    let currentMesh = null;
+    let currentGeometry = null;
+    let edgeLines = null;
+    let dimensionGroup = null;       // Group holding all dimension arrows + labels
+    let modelSizeMM = null;          // { x, y, z } in mm (raw STL units)
+    let autoRotate = false;
+    let isWireframe = false;
+    let isGridVisible = true;
+    let currentTheme = 'pcb-green';
+    let useImperial = false;         // false = mm, true = inches
+
+    // Material Presets
+    const materials = {
+      'pcb-green': new THREE.MeshStandardMaterial({
+        color: 0x14532d,
+        roughness: 0.35,
+        metalness: 0.15,
+      }),
+      'stealth-black': new THREE.MeshStandardMaterial({
+        color: 0x1c1917,
+        roughness: 0.6,
+        metalness: 0.1,
+      }),
+      'tech-blue': new THREE.MeshStandardMaterial({
+        color: 0x0369a1,
+        roughness: 0.35,
+        metalness: 0.2,
+      }),
+      'fr4-yellow': new THREE.MeshStandardMaterial({
+        color: 0xa16207,
+        roughness: 0.45,
+        metalness: 0.1,
+      }),
+      'clay-white': new THREE.MeshStandardMaterial({
+        color: 0xe2e8f0,
+        roughness: 0.7,
+        metalness: 0.05,
+      }),
+      'normals': new THREE.MeshNormalMaterial()
+    };
+
+    function initThree() {
+      const container = document.getElementById('viewer');
+      const width = viewerContainer.clientWidth;
+      const height = viewerContainer.clientHeight;
+
+      // Scene
+      scene = new THREE.Scene();
+
+      // Camera
+      camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 2000);
+      camera.position.set(50, 60, 90);
+
+      // Renderer
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(width, height);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.domElement.id = 'webgl-canvas';
+      container.appendChild(renderer.domElement);
+
+      // CSS2D label renderer (overlaid on top of WebGL canvas for crisp text)
+      labelRenderer = new CSS2DRenderer();
+      labelRenderer.setSize(width, height);
+      labelRenderer.domElement.style.position = 'absolute';
+      labelRenderer.domElement.style.top = '0';
+      labelRenderer.domElement.style.left = '0';
+      labelRenderer.domElement.style.pointerEvents = 'none';
+      viewerContainer.appendChild(labelRenderer.domElement);
+
+      // Orbit Controls
+      controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.06;
+      controls.maxDistance = 600;
+      controls.minDistance = 5;
+
+      // Lights
+      const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
+      scene.add(ambientLight);
+
+      const dirLight1 = new THREE.DirectionalLight(0xffffff, 2.0);
+      dirLight1.position.set(80, 120, 90);
+      scene.add(dirLight1);
+
+      const dirLight2 = new THREE.DirectionalLight(0x90b0d9, 1.0);
+      dirLight2.position.set(-80, -60, -90);
+      scene.add(dirLight2);
+
+      // Build Plate Grid
+      gridHelper = new THREE.GridHelper(160, 32, 0x3b82f6, 0x22324d);
+      gridHelper.position.y = -0.05;
+      scene.add(gridHelper);
+
+      // Render Loop
+      function animate() {
+        requestAnimationFrame(animate);
+        if (autoRotate && currentMesh) {
+          controls.autoRotate = true;
+          controls.autoRotateSpeed = 2.0;
+        } else {
+          controls.autoRotate = false;
+        }
+        controls.update();
+        renderer.render(scene, camera);
+        labelRenderer.render(scene, camera);
+      }
+      animate();
+
+      // Responsive Resize
+      window.addEventListener('resize', onWindowResize);
+    }
+
+    function onWindowResize() {
+      if (!renderer || !camera) return;
+      const width = viewerContainer.clientWidth;
+      const height = viewerContainer.clientHeight;
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height);
+      labelRenderer.setSize(width, height);
+    }
+
+    // ─── Dimension Annotations ───────────────────────────────────────────────
+
+    /** Format a millimetre value according to current unit setting */
+    function formatDim(mm) {
+      if (useImperial) {
+        const inches = mm / 25.4;
+        return inches.toFixed(3) + '"';
+      }
+      return mm.toFixed(1) + ' mm';
+    }
+
+    /**
+     * Create one dimension line with two small end-caps and a CSS2D label.
+     *
+     * @param {THREE.Vector3} from    Start of the arrow shaft
+     * @param {THREE.Vector3} to      End of the arrow shaft
+     * @param {THREE.Vector3} offset  Additional offset applied to both endpoints (for clearance)
+     * @param {string}        text    Label text
+     * @param {number}        color   Line colour (hex)
+     */
+    function makeDimArrow(from, to, offset, text, color) {
+      const group = new THREE.Group();
+
+      const start = from.clone().add(offset);
+      const end   = to.clone().add(offset);
+      const mid   = start.clone().lerp(end, 0.5);
+
+      // Shaft
+      const shaftGeo = new THREE.BufferGeometry().setFromPoints([start, end]);
+      const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.85 });
+      group.add(new THREE.Line(shaftGeo, mat));
+
+      // End-cap ticks (small perpendicular lines)
+      const dir = end.clone().sub(start).normalize();
+      // Pick an orthogonal vector for the tick direction
+      const up = Math.abs(dir.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
+      const perp = dir.clone().cross(up).normalize().multiplyScalar(1.4);
+
+      [start, end].forEach(pt => {
+        const tickGeo = new THREE.BufferGeometry().setFromPoints([
+          pt.clone().sub(perp),
+          pt.clone().add(perp)
+        ]);
+        group.add(new THREE.Line(tickGeo, mat));
+      });
+
+      // Arrowheads as small cones
+      const coneH = 2.0, coneR = 0.6;
+      const coneMat = new THREE.MeshBasicMaterial({ color });
+      [
+        { pos: start, fwd: dir.clone().negate() },
+        { pos: end,   fwd: dir.clone() }
+      ].forEach(({ pos, fwd }) => {
+        const coneGeo = new THREE.ConeGeometry(coneR, coneH, 6);
+        const cone = new THREE.Mesh(coneGeo, coneMat);
+        cone.position.copy(pos);
+        // Orient cone along fwd
+        const quaternion = new THREE.Quaternion();
+        quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), fwd);
+        cone.setRotationFromQuaternion(quaternion);
+        group.add(cone);
+      });
+
+      // CSS2D label at midpoint
+      const div = document.createElement('div');
+      div.className = 'dim-label';
+      div.textContent = text;
+      const label = new CSS2DObject(div);
+      label.position.copy(mid);
+      group.add(label);
+      group.userData.labelDiv = div; // store for text updates
+
+      return group;
+    }
+
+    /**
+     * Build (or rebuild) all three dimension arrows around the current mesh.
+     * Called after loading an STL and whenever units toggle.
+     */
+    function buildDimensionArrows() {
+      // Remove previous annotation group and clean up CSS2DObject DOM elements.
+      // CSS2DRenderer does NOT remove orphaned label <div>s when their parent
+      // Object3D is removed from the scene — they get stuck at their last
+      // rendered screen position. Traversing and detaching them explicitly
+      // prevents the "ghost label" glitch on camera move / unit toggle.
+      if (dimensionGroup) {
+        dimensionGroup.traverse(obj => {
+          if (obj.isCSS2DObject && obj.element.parentNode) {
+            obj.element.parentNode.removeChild(obj.element);
+          }
+        });
+        scene.remove(dimensionGroup);
+        dimensionGroup = null;
+      }
+      if (!currentMesh || !modelSizeMM) return;
+
+      const { x: W, y: H, z: D } = modelSizeMM; // W=width(X), H=height(Y), D=depth(Z) in mm
+      // In Three.js world after rotation: X=width, Y=height, Z=depth
+      const hw = W / 2, hd = D / 2, hy = H / 2;
+
+      const GAP = 4; // clearance gap from the mesh surface
+
+      dimensionGroup = new THREE.Group();
+
+      // Width arrow — along X axis, placed below the board (y=0) and in front (z = +hd+GAP)
+      dimensionGroup.add(makeDimArrow(
+        new THREE.Vector3(-hw, 0, hd + GAP),
+        new THREE.Vector3( hw, 0, hd + GAP),
+        new THREE.Vector3(0, 0, 0),
+        formatDim(W),
+        0x60a5fa   // blue
+      ));
+
+      // Depth arrow — along Z axis, to the right of the board (x = +hw+GAP)
+      dimensionGroup.add(makeDimArrow(
+        new THREE.Vector3(hw + GAP, 0, -hd),
+        new THREE.Vector3(hw + GAP, 0,  hd),
+        new THREE.Vector3(0, 0, 0),
+        formatDim(D),
+        0x34d399   // green
+      ));
+
+      // Height arrow — along Y axis, to the right and in front
+      dimensionGroup.add(makeDimArrow(
+        new THREE.Vector3(hw + GAP, 0,  hd + GAP),
+        new THREE.Vector3(hw + GAP, H,  hd + GAP),
+        new THREE.Vector3(0, 0, 0),
+        formatDim(H),
+        0xfbbf24   // amber
+      ));
+
+      scene.add(dimensionGroup);
+    }
+
+    // Load STL & Center
+    function loadSTL(url) {
+      const loader = new STLLoader();
+      loader.load(url, geometry => {
+        if (currentMesh) {
+          if (edgeLines) {
+            edgeLines.geometry.dispose();
+            edgeLines.material.dispose();
+            edgeLines = null;
+          }
+          scene.remove(currentMesh);
+          currentMesh.geometry.dispose();
+        }
+        edgeLines = null;
+
+        currentGeometry = geometry;
+        geometry.computeVertexNormals();
+        geometry.computeBoundingBox();
+
+        // Calculate dimensions (STL units are mm)
+        const bbox = geometry.boundingBox;
+        const size = new THREE.Vector3();
+        bbox.getSize(size);
+
+        // Center on X and Y, sit on Z=0
+        geometry.center();
+        const heightZ = size.z;
+        // Rotate so Z (STL up) becomes Y (Three.js up)
+        geometry.rotateX(-Math.PI / 2);
+
+        // Update bounding box after rotation
+        geometry.computeBoundingBox();
+        const rotSize = new THREE.Vector3();
+        geometry.boundingBox.getSize(rotSize);
+        geometry.translate(0, rotSize.y / 2, 0);
+
+        // Apply selected material
+        const mat = materials[currentTheme];
+        currentMesh = new THREE.Mesh(geometry, mat);
+        currentMesh.castShadow = true;
+        currentMesh.receiveShadow = true;
+        scene.add(currentMesh);
+        updateWireframeDisplay();
+
+        // Auto adjust grid to PCB size
+        const maxDim = Math.max(rotSize.x, rotSize.z, 50);
+        const gridSize = Math.ceil((maxDim * 2) / 20) * 20;
+        scene.remove(gridHelper);
+        gridHelper = new THREE.GridHelper(gridSize, gridSize / 5, 0x3b82f6, 0x22324d);
+        gridHelper.position.y = 0;
+        gridHelper.visible = isGridVisible;
+        scene.add(gridHelper);
+
+        // Frame camera
+        fitCameraToMesh(currentMesh);
+
+        // Store raw mm size then build dimension arrows
+        // size.x/y/z are pre-rotation (STL convention): x=width, y=depth, z=height
+        modelSizeMM = { x: size.x, y: size.z, z: size.y };
+        buildDimensionArrows();
+
+        // Update HUD Stats
+        const hx = formatDim(modelSizeMM.x);
+        const hy = formatDim(modelSizeMM.y);
+        const hz = formatDim(modelSizeMM.z);
+        hudDim.textContent = `${hx} × ${hy} × ${hz}`;
+        const triCount = geometry.attributes.position.count / 3;
+        hudTriangles.textContent = triCount.toLocaleString();
+        hudBadge.classList.add('active');
+
+        // Hide empty overlay
+        emptyOverlay.style.display = 'none';
+      }, undefined, err => {
+        showError('Failed to parse and render 3D STL file.');
+      });
+    }
+
+    function fitCameraToMesh(mesh) {
+      if (!mesh || !mesh.geometry.boundingBox) return;
+      const box = mesh.geometry.boundingBox;
+      const size = new THREE.Vector3();
+      box.getSize(size);
+      const maxDim = Math.max(size.x, size.y, size.z);
+      const fov = camera.fov * (Math.PI / 180);
+      let cameraDistance = Math.abs(maxDim / 2 / Math.tan(fov / 2)) * 2.2;
+      cameraDistance = Math.max(cameraDistance, 30);
+
+      controls.target.set(0, size.y / 2, 0);
+      camera.position.set(cameraDistance * 0.7, cameraDistance * 0.9, cameraDistance * 1.1);
+      camera.lookAt(controls.target);
+      controls.update();
+    }
+
+    // Camera preset views
+    function setCameraView(type) {
+      if (!currentMesh) return;
+      const box = currentMesh.geometry.boundingBox;
+      const size = new THREE.Vector3();
+      box.getSize(size);
+      const maxDim = Math.max(size.x, size.y, size.z);
+      const dist = Math.max(maxDim * 2.2, 40);
+      const target = new THREE.Vector3(0, size.y / 2, 0);
+      controls.target.copy(target);
+
+      if (type === 'top') {
+        camera.position.set(0, dist * 1.4, 0.001);
+      } else if (type === 'front') {
+        camera.position.set(0, size.y / 2, dist);
+      } else if (type === 'iso') {
+        camera.position.set(dist * 0.7, dist * 0.9, dist * 1.1);
+      } else if (type === 'reset') {
+        fitCameraToMesh(currentMesh);
+        return;
+      }
+      camera.lookAt(target);
+      controls.update();
+    }
+
+    // Wireframe Mode: clean CAD edges visible, surfaces transparent
+    function updateWireframeDisplay() {
+      if (!currentMesh || !currentGeometry) return;
+
+      if (!edgeLines) {
+        // Extract CAD feature and boundary edges (threshold angle 20 deg filters internal triangulation)
+        const edgesGeo = new THREE.EdgesGeometry(currentGeometry, 20);
+        const lineMat = new THREE.LineBasicMaterial({
+          color: 0x38bdf8,
+          linewidth: 1.5,
+          transparent: true,
+          opacity: 0.95
+        });
+        edgeLines = new THREE.LineSegments(edgesGeo, lineMat);
+        currentMesh.add(edgeLines);
+      }
+
+      if (isWireframe) {
+        edgeLines.visible = true;
+        // Make the mesh surfaces completely transparent so only model edges are visible
+        currentMesh.material.transparent = true;
+        currentMesh.material.opacity = 0.0;
+        currentMesh.material.depthWrite = false;
+        currentMesh.material.needsUpdate = true;
+      } else {
+        if (edgeLines) edgeLines.visible = false;
+        // Restore standard opaque surface
+        currentMesh.material.transparent = false;
+        currentMesh.material.opacity = 1.0;
+        currentMesh.material.depthWrite = true;
+        currentMesh.material.needsUpdate = true;
+      }
+    }
+
+    // Apply Material / Theme
+    function applyMaterial(themeName) {
+      currentTheme = themeName;
+      document.querySelectorAll('.color-swatch-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.theme === themeName);
+      });
+      if (currentMesh) {
+        currentMesh.material = materials[themeName];
+        updateWireframeDisplay();
+      }
+    }
+
+    // UI Helpers
+    function showError(msg) {
+      errorMessage.textContent = msg;
+      alertError.classList.add('active');
+    }
+
+    function clearError() {
+      alertError.classList.remove('active');
+    }
+
+    function updateFileDisplay(file) {
+      if (file) {
+        fileNameDisplay.textContent = file.name;
+        fileSizeDisplay.textContent = (file.size / 1024).toFixed(1) + ' KB';
+        fileBadge.classList.add('active');
+        clearError();
+      } else {
+        fileBadge.classList.remove('active');
+        fileInput.value = '';
+      }
+    }
+
+    // Drag & Drop Handlers
+    dropzone.addEventListener('click', () => fileInput.click());
+
+    ['dragenter', 'dragover'].forEach(name => {
+      dropzone.addEventListener(name, e => {
+        e.preventDefault();
+        dropzone.classList.add('dragover');
+      });
+    });
+
+    ['dragleave', 'drop'].forEach(name => {
+      dropzone.addEventListener(name, e => {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+      });
+    });
+
+    dropzone.addEventListener('drop', e => {
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        const file = e.dataTransfer.files[0];
+        if (file.name.toLowerCase().endsWith('.dxf')) {
+          fileInput.files = e.dataTransfer.files;
+          updateFileDisplay(file);
+        } else {
+          showError('Please drop a valid .dxf file.');
+        }
+      }
+    });
+
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files.length > 0) {
+        updateFileDisplay(fileInput.files[0]);
+      }
+    });
+
+    btnRemoveFile.addEventListener('click', () => {
+      updateFileDisplay(null);
+    });
+
+// Sample Board Loader
+btnLoadSample.addEventListener('click', async () => {
+  try {
+    btnLoadSample.disabled = true;
+    btnLoadSample.textContent = 'Loading sample...';
+    const includeM4 = toggleM4Holes.checked ? '1' : '0';
+    const select = document.getElementById('sample-select');
+    const sampleId = select.value;
+    const res = await fetch(`/api/sample-dxf?id=${sampleId}&m4_holes=${includeM4}`);
+    if (!res.ok) throw new Error('Sample DXF unavailable');
+    const blob = await res.blob();
+    const fileName = `${sampleId}${includeM4 === '1' ? '_with_m4' : '_no_m4'}.dxf`;
+    const file = new File([blob], fileName, { type: 'application/dxf' });
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    fileInput.files = dt.files;
+    updateFileDisplay(file);
+    // Automatically submit to preview right away
+    form.dispatchEvent(new Event('submit', { cancelable: true }));
+  } catch (err) {
+    showError('Could not load sample board: ' + err.message);
+  } finally {
+    btnLoadSample.disabled = false;
+    btnLoadSample.innerHTML = `
+      <span class="material-symbols-outlined" style="font-size: 16px;">bolt</span>
+      Load Sample
+    `;
+  }
+});
+
+// Populate sample dropdown from API
+async function populateSampleDropdown() {
+  try {
+    const res = await fetch('/api/samples');
+    if (!res.ok) throw new Error('Failed to fetch samples');
+    const catalog = await res.json();
+    const select = document.getElementById('sample-select');
+    // Clear existing options
+    select.innerHTML = '';
+    catalog.forEach(sample => {
+      const opt = document.createElement('option');
+      opt.value = sample.id;
+      opt.textContent = sample.name;
+      select.appendChild(opt);
+    });
+    // If there is at least one sample, select the first
+    if (catalog.length > 0) {
+      select.value = catalog[0].id;
+    }
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+// Call populate on load
+populateSampleDropdown();
+
+    // Toolbar Listeners
+    document.getElementById('btn-view-iso').addEventListener('click', () => setCameraView('iso'));
+    document.getElementById('btn-view-top').addEventListener('click', () => setCameraView('top'));
+    document.getElementById('btn-view-front').addEventListener('click', () => setCameraView('front'));
+    document.getElementById('btn-view-reset').addEventListener('click', () => setCameraView('reset'));
+
+    document.querySelectorAll('.color-swatch-btn').forEach(btn => {
+      btn.addEventListener('click', () => applyMaterial(btn.dataset.theme));
+    });
+
+    const btnWireframe = document.getElementById('btn-toggle-wireframe');
+    btnWireframe.addEventListener('click', () => {
+      isWireframe = !isWireframe;
+      btnWireframe.classList.toggle('active', isWireframe);
+      updateWireframeDisplay();
+    });
+
+    const btnGrid = document.getElementById('btn-toggle-grid');
+    btnGrid.addEventListener('click', () => {
+      isGridVisible = !isGridVisible;
+      btnGrid.classList.toggle('active', !isGridVisible);
+      if (gridHelper) gridHelper.visible = isGridVisible;
+    });
+
+    const btnRotate = document.getElementById('btn-toggle-rotate');
+    btnRotate.addEventListener('click', () => {
+      autoRotate = !autoRotate;
+      btnRotate.classList.toggle('active', autoRotate);
+    });
+
+    const btnFullscreen = document.getElementById('btn-fullscreen');
+    btnFullscreen.addEventListener('click', () => {
+      if (!document.fullscreenElement) {
+        viewerContainer.requestFullscreen().catch(err => alert(err.message));
+      } else {
+        document.exitFullscreen();
+      }
+    });
+
+    const btnUnitToggle = document.getElementById('btn-unit-toggle');
+    btnUnitToggle.addEventListener('click', () => {
+      useImperial = !useImperial;
+      btnUnitToggle.textContent = useImperial ? 'in' : 'mm';
+      btnUnitToggle.classList.toggle('imperial', useImperial);
+      // Rebuild 3D dimension arrows with new unit labels
+      buildDimensionArrows();
+      // Update HUD badge
+      if (modelSizeMM) {
+        hudDim.textContent =
+          `${formatDim(modelSizeMM.x)} × ${formatDim(modelSizeMM.y)} × ${formatDim(modelSizeMM.z)}`;
+      }
+    });
+
+    // Modal Listeners
+    btnOpenHelp.addEventListener('click', () => helpModal.showModal());
+    btnCloseHelp.addEventListener('click', () => helpModal.close());
+    helpModal.addEventListener('click', (e) => {
+      if (e.target === helpModal) helpModal.close();
+    });
+
+    // Form Submit (Generation)
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      clearError();
+
+      if (!fileInput.files || fileInput.files.length === 0) {
+        showError('Please select or drop a DXF file first.');
+        return;
+      }
+
+      // UI state: loading
+      btnGenerate.disabled = true;
+      loadingOverlay.classList.add('active');
+      loadingStep.textContent = 'Uploading DXF & parsing layers...';
+
+      const formData = new FormData(form);
+
+      try {
+        const stepTimer = setTimeout(() => {
+          loadingStep.textContent = 'Executing OpenSCAD CSG union & extrusions...';
+        }, 1200);
+
+        const response = await fetch('/api/generate', {
+          method: 'POST',
+          body: formData
+        });
+
+        clearTimeout(stepTimer);
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.error || 'Generation failed');
+        }
+
+        loadingStep.textContent = 'Loading 3D mesh into viewport...';
+        loadSTL(result.stl_url);
+
+        // Update download card
+        downloadStlLink.href = result.stl_url;
+        downloadStlLink.setAttribute('download', `${fileInput.files[0].name.replace(/\.dxf$/i, '')}_pcb3d.stl`);
+        downloadCard.classList.add('active');
+      } catch (err) {
+        showError(err.message);
+      } finally {
+        loadingOverlay.classList.remove('active');
+        btnGenerate.disabled = false;
+      }
+    });
+
+    // Initialize 3D on load
+    initThree();
+  </script>
+</body>
+</html>
