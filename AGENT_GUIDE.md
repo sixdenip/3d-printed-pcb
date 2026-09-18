@@ -76,8 +76,11 @@ Whenever an agent operates in this repository:
 ├── tests/
 │   ├── test_core.py            # Geometry, config, DXF, OpenSCAD, and STL unit tests
 │   └── test_web.py             # Flask API endpoints and catalog tests
-├── pyproject.toml              # Build config, dependencies (ezdxf, pyyaml, flask, pytest)
-├── README.md                   # User-facing summary
+├── Dockerfile                  # Container definition with OpenSCAD & Gunicorn
+├── docker-compose.yml          # Production & dev orchestrator with volume persistence
+├── .dockerignore               # Build context exclusions
+├── pyproject.toml              # Build config, dependencies (ezdxf, pyyaml, flask, gunicorn, pytest)
+├── README.md                   # User-facing summary & comprehensive installation guide
 ├── GEMINI.md                   # Governance and workspace behavior rules
 └── AGENT_GUIDE.md              # This engineering document
 ```
@@ -240,4 +243,16 @@ All testing is automated via `pytest`. Always invoke through `./.venv`:
 - [ ] Trench cutter height includes the `+ 0.1` mm offset to prevent coplanar non-manifold faces.
 - [ ] Stacking pegs and sockets maintain press-fit clearance ($\approx 0.15\,\text{mm}$) and non-manifold offsets.
 - [ ] Session log updated in `/session_log/`.
+
+---
+
+## 7. Deployment & Container Architecture
+
+### Container Design
+- **Base Image**: `python:3.12-slim-bookworm` provides minimal security attack surface and fast startup.
+- **OpenSCAD Headless Compiler**: OpenSCAD 2021.01+ runs directly via CLI (`-o <output.stl> <input.scad>`) without an active X11 display server.
+- **Production WSGI Server**: Gunicorn is configured with `-w 4 -b 0.0.0.0:5000 --timeout 120 'pcb3d.web:create_app()'`. The 120-second timeout allows adequate execution time for complex CSG boolean difference calculations on boards with hundreds of trace segments.
+- **Persistent Volume**: Generated STL, SCAD, and ZIP bundle artifacts are written to `/app/pcb3d-output`, mounted to `./pcb3d-output` on the host machine to prevent container disk exhaustion and allow easy retrieval.
+- **Healthcheck**: Built-in container health check verifies that the Flask application responds to HTTP requests at `/` every 30 seconds.
+
 

@@ -1,0 +1,31 @@
+# Git
+.git
+.gitignore
+
+# Python cache & virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+.venv/
+venv/
+ENV/
+env/
+
+# Test & coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local outputs
+pcb3d-output/
+session_log/
+
+# IDE / Editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store

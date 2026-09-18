@@ -16,6 +16,7 @@ dependencies = [
 
 [project.optional-dependencies]
 test = ["pytest>=7.0"]
+deploy = ["gunicorn>=21.0"]
 
 [project.scripts]
 pcb3d = "pcb3d.cli:main"

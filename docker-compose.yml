@@ -1,0 +1,15 @@
+services:
+  pcb3d:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: pcb3d:latest
+    container_name: pcb3d-studio
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./pcb3d-output:/app/pcb3d-output
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PORT=5000
