@@ -1,8 +1,10 @@
 # 3D-printed PCB Toolchain
 
-This MVP converts a KiCad-oriented DXF export into an OpenSCAD model and then an
-STL: a rectangular base plate, raised trace centerlines, and cylindrical
-through-holes. It deliberately produces **STL, not OBJ**.
+This MVP converts KiCad DXF or SVG exports into an OpenSCAD model and then an
+STL: a rectangular dielectric base plate, subtractive recessed trace trenches (channels
+carved lower than the base surface), and cylindrical through-holes. It deliberately produces **STL, not OBJ**.
+
+For full architectural details, data flow, and development guidelines, see [AGENT_GUIDE.md](AGENT_GUIDE.md).
 
 ## Setup
 
@@ -13,13 +15,14 @@ python -m pip install -e '.[test]'
 pytest
 ```
 
-## DXF convention
+## DXF and SVG conventions
 
-The parser reads model-space `LINE`, `LWPOLYLINE`, and `POLYLINE` entities for
-the outline and traces, and `CIRCLE` entities for holes. Coordinates are
-treated as millimetres. By default it expects `Edge.Cuts`, `F.Cu`, and
-`NPTH`/`Drill` layers. The outline is used to calculate the rectangular MVP
-bounding box; traces are centerlines stroked at the configured width.
+The parser accepts both **AutoCAD DXF** (`.dxf`) and **Scalable Vector Graphics** (`.svg`, e.g. as exported by KiCad).
+
+- **DXF**: Reads model-space `LINE`, `LWPOLYLINE`, `POLYLINE`, and `ARC` entities for outline and traces, and `CIRCLE` entities for holes.
+- **SVG**: Reads `<path>`, `<rect>`, `<line>`, `<polyline>`, `<polygon>` for outline and traces, and `<circle>` or circular hole paths for through-holes, with layer classification via `<g id="...">` or classes. Coordinates and units (`mm`, `in`, `cm`, `pt`, `px`) are automatically normalized to millimetres.
+
+By default, layers `Edge.Cuts` (outline), `F.Cu` (traces), and `NPTH`/`Drill` (holes) are recognized. Traces are centerlines stroked at the configured width.
 
 ## Configuration
 
@@ -41,7 +44,7 @@ parameters:
 
 ```sh
 pcb3d generate --dxf board.dxf --output board.stl --config pcb3d.yml
-# Optional overrides: --base-thickness, --trace-height, --trace-width,
+# Optional overrides: --base-thickness, --trace-depth (or --trace-height), --trace-width,
 # --outline-margin, and --openscad /path/to/openscad
 ```
 

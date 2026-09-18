@@ -48,16 +48,16 @@
         <div class="card">
           <div class="card-title">
             <span class="material-symbols-outlined">description</span>
-            Board DXF File
+            Board DXF / SVG File
           </div>
 
           <div class="dropzone" id="dropzone">
             <div class="dropzone-icon">
               <span class="material-symbols-outlined">upload_file</span>
             </div>
-            <div class="dropzone-text">Drop your DXF file here</div>
-            <div class="dropzone-hint">Supports KiCad R2010/R2013 DXF (.dxf)</div>
-            <input type="file" id="dxf-file-input" name="dxf" accept=".dxf" required>
+            <div class="dropzone-text">Drop your DXF or SVG file here</div>
+            <div class="dropzone-hint">Supports KiCad DXF (.dxf) and SVG (.svg) exports</div>
+            <input type="file" id="dxf-file-input" name="dxf" accept=".dxf,.svg" required>
           </div>
 
           <div class="file-badge" id="file-badge">
@@ -115,10 +115,10 @@
 
             <div class="input-group">
               <div class="input-label-row">
-                <label class="input-label" for="trace_height">Trace Height</label>
+                <label class="input-label" for="trace_height" title="Depth of copper trace trenches dug into the substrate">Trench Depth</label>
               </div>
               <div class="input-wrapper">
-                <input class="input-control" type="number" id="trace_height" name="trace_height" step="0.05" min="0.1" value="0.4" required>
+                <input class="input-control" type="number" id="trace_height" name="trace_height" step="0.05" min="0.05" value="0.4" required title="Depth of copper trace trenches dug into the substrate">
                 <span class="unit-badge">mm</span>
               </div>
             </div>
@@ -146,7 +146,7 @@
 
           <div class="checkbox-group">
             <label class="checkbox-label" for="toggle-m4-holes">
-              <input type="checkbox" id="toggle-m4-holes" checked>
+              <input type="checkbox" id="toggle-m4-holes" name="include_m4" value="1" checked>
               <span>Include corner M4 mounting holes (&Oslash;4.4mm)</span>
             </label>
           </div>
@@ -183,13 +183,19 @@
         <div class="download-card" id="download-card">
           <div class="card-title" style="color: #34d399;">
             <span class="material-symbols-outlined" style="color: #10b981; font-size: 18px;">check_circle</span>
-            STL Ready for 3D Printing
+            Ready for Slicing & Code Export
           </div>
-          <p style="font-size: 0.8125rem; color: #a7f3d0;">The 3D model was compiled with OpenSCAD and is ready to slice in PrusaSlicer, Bambu Studio, or Cura.</p>
-          <a class="btn-download" id="download-stl-link" href="#" download>
-            <span class="material-symbols-outlined">download</span>
-            Download .STL File
-          </a>
+          <p style="font-size: 0.8125rem; color: #a7f3d0;">The 3D model was compiled with OpenSCAD. You can download the sliced STL or the OpenSCAD source script.</p>
+          <div class="download-actions-group">
+            <a class="btn-download" id="download-stl-link" href="#" download>
+              <span class="material-symbols-outlined">download</span>
+              Download .STL File
+            </a>
+            <a class="btn-download btn-download-scad" id="download-scad-link" href="#" download>
+              <span class="material-symbols-outlined">code</span>
+              Download .SCAD File
+            </a>
+          </div>
         </div>
 
         <!-- Error Notification Banner -->
@@ -200,103 +206,191 @@
       </form>
     </aside>
 
-    <!-- Right 3D Interactive Viewport -->
-    <section class="viewport-container" id="viewport-container">
-      <div id="viewer"></div>
+    <!-- Right Split Viewports Column (2D DXF Top + 3D Mesh Bottom) -->
+    <div class="viewports-column" id="viewports-column">
+      <!-- 2D DXF Vector Circuit Visualizer (Top Pane) -->
+      <section class="dxf-viewport-pane" id="dxf-viewport-pane">
+        <!-- 2D Header & Toolbar -->
+        <div class="dxf-toolbar">
+          <div class="dxf-title-group">
+            <span class="material-symbols-outlined dxf-title-icon">schema</span>
+            <span class="dxf-title-text">2D Circuit Layout</span>
+            <span class="dxf-file-badge" id="dxf-file-badge">No DXF loaded</span>
+          </div>
 
-      <!-- Top Toolbar -->
-      <div class="viewport-toolbar">
-        <!-- View Camera Presets -->
-        <div class="toolbar-group">
-          <button type="button" class="toolbar-btn" id="btn-view-iso" title="Isometric Perspective">Iso</button>
-          <button type="button" class="toolbar-btn" id="btn-view-top" title="Top View">Top</button>
-          <button type="button" class="toolbar-btn" id="btn-view-front" title="Front Edge View">Front</button>
-          <button type="button" class="toolbar-btn" id="btn-view-reset" title="Fit to Screen">Center</button>
+          <!-- Layer Visibility Toggles -->
+          <div class="dxf-layer-group">
+            <button type="button" class="dxf-layer-pill active" id="pill-layer-outline" data-layer="outline" title="Toggle Board Outline (Edge.Cuts)">
+              <span class="dxf-pill-dot dot-outline"></span>
+              <span>Outline</span>
+            </button>
+            <button type="button" class="dxf-layer-pill active" id="pill-layer-traces" data-layer="traces" title="Toggle Copper Traces (F.Cu)">
+              <span class="dxf-pill-dot dot-traces"></span>
+              <span>Traces</span>
+            </button>
+            <button type="button" class="dxf-layer-pill active" id="pill-layer-holes" data-layer="holes" title="Toggle Drill / Through-Holes">
+              <span class="dxf-pill-dot dot-holes"></span>
+              <span>Holes</span>
+            </button>
+          </div>
+
+          <!-- 2D Zoom / Fit Actions -->
+          <div class="dxf-actions-group">
+            <button type="button" class="toolbar-btn" id="btn-dxf-zoom-in" title="Zoom In (or scroll wheel)">
+              <span class="material-symbols-outlined">zoom_in</span>
+            </button>
+            <button type="button" class="toolbar-btn" id="btn-dxf-zoom-out" title="Zoom Out (or scroll wheel)">
+              <span class="material-symbols-outlined">zoom_out</span>
+            </button>
+            <button type="button" class="toolbar-btn" id="btn-dxf-fit" title="Fit to Viewport">
+              <span class="material-symbols-outlined">fit_screen</span>
+            </button>
+          </div>
         </div>
 
-        <!-- Material Presets & Toggles -->
-        <div class="toolbar-group">
-          <button type="button" class="color-swatch-btn active" data-theme="pcb-green" style="background: #1b5e20;" title="Classic PCB Green"></button>
-          <button type="button" class="color-swatch-btn" data-theme="stealth-black" style="background: #1c1917;" title="Stealth Matte Black"></button>
-          <button type="button" class="color-swatch-btn" data-theme="tech-blue" style="background: #0284c7;" title="Technical Solder Blue"></button>
-          <button type="button" class="color-swatch-btn" data-theme="fr4-yellow" style="background: #b45309;" title="FR4 Raw Substrate"></button>
-          <button type="button" class="color-swatch-btn" data-theme="clay-white" style="background: #e2e8f0;" title="Studio CAD White"></button>
-          <button type="button" class="color-swatch-btn" data-theme="normals" style="background: linear-gradient(135deg, #ef4444, #10b981, #3b82f6); border-radius: 50%;" title="Surface Normals"></button>
-
-          <div style="width: 1px; height: 16px; background: var(--border-subtle); margin: 0 2px;"></div>
-
-          <button type="button" class="toolbar-btn" id="btn-toggle-wireframe" title="Toggle Wireframe">
-            <span class="material-symbols-outlined" style="font-size: 16px;">grid_4x4</span>
-          </button>
-
-          <button type="button" class="toolbar-btn" id="btn-toggle-grid" title="Toggle Build Plate Grid">
-            <span class="material-symbols-outlined" style="font-size: 16px;">grid_on</span>
-          </button>
-
-          <button type="button" class="toolbar-btn" id="btn-toggle-rotate" title="Turntable Auto-Rotate">
-            <span class="material-symbols-outlined" style="font-size: 16px;">360</span>
-          </button>
-
-          <button type="button" class="toolbar-btn" id="btn-fullscreen" title="Toggle Fullscreen">
-            <span class="material-symbols-outlined" style="font-size: 16px;">fullscreen</span>
-          </button>
-
-          <div style="width: 1px; height: 16px; background: var(--border-subtle); margin: 0 2px;"></div>
-
-          <button type="button" class="btn-unit-toggle" id="btn-unit-toggle" title="Switch between metric and imperial units">mm</button>
+        <!-- 2D SVG Circuit Canvas -->
+        <div class="dxf-canvas-container" id="dxf-canvas-container">
+          <svg id="dxf-svg" class="dxf-svg" preserveAspectRatio="xMidYMid meet">
+            <g id="dxf-root-group">
+              <g id="dxf-outline-layer"></g>
+              <g id="dxf-traces-layer"></g>
+              <g id="dxf-holes-layer"></g>
+            </g>
+          </svg>
         </div>
+
+        <!-- 2D HUD Badge -->
+        <div class="dxf-hud-badge" id="dxf-hud-badge">
+          <div class="hud-row"><span>DIMENSIONS:</span> <span class="hud-val" id="dxf-hud-dim">0 × 0 mm</span></div>
+          <div class="hud-row"><span>CIRCUIT:</span> <span class="hud-val" id="dxf-hud-counts">0 traces, 0 holes</span></div>
+        </div>
+
+        <!-- 2D Navigation Hints -->
+        <div class="dxf-nav-hints">
+          <span><kbd>Drag</kbd> Pan</span>
+          <span><kbd>Scroll</kbd> Zoom</span>
+          <span><kbd>Dbl-Click</kbd> Fit</span>
+        </div>
+
+        <!-- 2D Hover Tooltip -->
+        <div class="dxf-tooltip" id="dxf-tooltip"></div>
+
+        <!-- 2D Empty Overlay -->
+        <div class="dxf-empty-overlay" id="dxf-empty-overlay">
+          <span class="material-symbols-outlined dxf-empty-icon">schema</span>
+          <p class="dxf-empty-title">2D Circuit Layout</p>
+          <p class="dxf-empty-desc">Load a sample circuit or select a DXF file to view 2D vector geometry.</p>
+        </div>
+      </section>
+
+      <!-- Viewports Splitter Divider -->
+      <div class="viewports-divider" id="viewports-divider" title="Drag to resize 2D and 3D views">
+        <div class="divider-handle"></div>
       </div>
 
-      <!-- HUD Stats Dimensions Badge -->
-      <div class="hud-badge" id="hud-badge">
-        <div class="hud-row"><span>DIMENSIONS:</span> <span class="hud-val" id="hud-dim">0 x 0 x 0 mm</span></div>
-        <div class="hud-row"><span>TRIANGLES:</span> <span class="hud-val" id="hud-triangles">0</span></div>
-      </div>
+      <!-- Right 3D Interactive Viewport (Bottom Pane) -->
+      <section class="viewport-container" id="viewport-container">
+        <div id="viewer"></div>
 
-      <!-- Navigation Hints -->
-      <div class="nav-hints">
-        <span><kbd>LMB</kbd> Rotate</span>
-        <span><kbd>RMB</kbd> Pan</span>
-        <span><kbd>Scroll</kbd> Zoom</span>
-      </div>
+        <!-- Top Toolbar -->
+        <div class="viewport-toolbar">
+          <!-- Interactive 3D ViewCube Orientation Gizmo -->
+          <div class="viewcube-wrapper" id="viewcube-wrapper" title="Interactive ViewCube: click faces to switch camera perspective">
+            <canvas id="viewcube-canvas"></canvas>
+            <button type="button" class="viewcube-home-btn" id="btn-viewcube-home" title="Reset Camera to Isometric View">
+              <span class="material-symbols-outlined">home</span>
+            </button>
+          </div>
 
-      <!-- Empty State -->
-      <div class="empty-overlay" id="empty-overlay">
-        <span class="material-symbols-outlined empty-illustration">view_in_ar</span>
-        <h2 class="empty-title">Ready for Circuit Geometry</h2>
-        <p class="empty-desc">Drop your KiCad exported DXF board file on the left panel or click "Try Sample Circuit Board" to preview in interactive 3D.</p>
-      </div>
+          <!-- Viewport Action Toggles -->
+          <div class="toolbar-group">
+            <!-- Color Mode Swatches: Surface Normals vs PCB Green -->
+            <button type="button" class="color-swatch-btn active" id="btn-color-normals" data-color="normals" title="Surface Normals (Vector Orientation)">
+              <span class="swatch-preview swatch-normals"></span>
+            </button>
+            <button type="button" class="color-swatch-btn" id="btn-color-green" data-color="green" title="PCB Green (Solder Mask)">
+              <span class="swatch-preview swatch-green"></span>
+            </button>
 
-      <!-- Loading State Overlay -->
-      <div class="loading-overlay" id="loading-overlay">
-        <div class="spinner-ring"></div>
-        <div class="loading-title">Generating 3D Printable PCB</div>
-        <div class="loading-step" id="loading-step">Running OpenSCAD geometry engine...</div>
-      </div>
-    </section>
+            <div class="toolbar-divider"></div>
+
+            <button type="button" class="toolbar-btn" id="btn-toggle-wireframe" title="Toggle Wireframe">
+              <span class="material-symbols-outlined">grid_4x4</span>
+            </button>
+
+            <button type="button" class="toolbar-btn" id="btn-toggle-grid" title="Toggle Build Plate Grid">
+              <span class="material-symbols-outlined">grid_on</span>
+            </button>
+
+            <button type="button" class="toolbar-btn" id="btn-toggle-rotate" title="Turntable Auto-Rotate">
+              <span class="material-symbols-outlined">360</span>
+            </button>
+
+            <button type="button" class="toolbar-btn" id="btn-fullscreen" title="Toggle Fullscreen">
+              <span class="material-symbols-outlined">fullscreen</span>
+            </button>
+
+            <div class="toolbar-divider"></div>
+
+            <button type="button" class="btn-unit-toggle" id="btn-unit-toggle" title="Switch between metric and imperial units">mm</button>
+          </div>
+        </div>
+
+        <!-- HUD Stats Dimensions Badge -->
+        <div class="hud-badge" id="hud-badge">
+          <div class="hud-row"><span>DIMENSIONS:</span> <span class="hud-val" id="hud-dim">0 × 0 mm</span></div>
+          <div class="hud-row"><span>TRIANGLES:</span> <span class="hud-val" id="hud-triangles">0</span></div>
+        </div>
+
+        <!-- Navigation Hints -->
+        <div class="nav-hints">
+          <span><kbd>LMB</kbd> Rotate</span>
+          <span><kbd>RMB</kbd> Pan</span>
+          <span><kbd>Scroll</kbd> Zoom</span>
+        </div>
+
+        <!-- Empty State -->
+        <div class="empty-overlay" id="empty-overlay">
+          <span class="material-symbols-outlined empty-illustration">view_in_ar</span>
+          <h2 class="empty-title">Ready for Circuit Geometry</h2>
+          <p class="empty-desc">Drop your KiCad exported DXF board file on the left panel or click "Try Sample Circuit Board" to preview in interactive 3D.</p>
+        </div>
+
+        <!-- Loading State Overlay -->
+        <div class="loading-overlay" id="loading-overlay">
+          <div class="spinner-ring"></div>
+          <div class="loading-title">Generating 3D Printable PCB</div>
+          <div class="loading-step" id="loading-step">Running OpenSCAD geometry engine...</div>
+        </div>
+      </section>
+    </div>
   </main>
 
   <!-- Help / Instructions Modal Dialog -->
   <dialog class="modal" id="help-modal">
     <div class="modal-header">
-      <div class="modal-title">Exporting DXF from KiCad</div>
+      <div class="modal-title">Exporting DXF / SVG from KiCad</div>
       <button class="btn-close-modal" id="btn-close-help">
         <span class="material-symbols-outlined">close</span>
       </button>
     </div>
     <div class="modal-body">
-      <p>To export compatible DXF files in KiCad PCB Editor:</p>
+      <p>PCB3D Studio supports both <strong>DXF</strong> and <strong>SVG</strong> vector board files exported from KiCad:</p>
+      
+      <h3 style="font-size: 0.9375rem; color: #60a5fa; margin-top: 0.75rem; margin-bottom: 0.35rem;">Option A: Exporting DXF</h3>
+      <ol style="margin-bottom: 1rem;">
+        <li>In KiCad PCB Editor, go to <strong>File &rarr; Export &rarr; DXF...</strong></li>
+        <li>Check layers: <code>Edge.Cuts</code>, <code>F.Cu</code>, and <code>Drill</code> / <code>NPTH</code>.</li>
+        <li>Ensure DXF Format is set to <strong>AutoCAD 2010</strong> or later.</li>
+        <li>Click <strong>Export</strong> and drop the <code>.dxf</code> into PCB3D!</li>
+      </ol>
+
+      <h3 style="font-size: 0.9375rem; color: #38bdf8; margin-top: 0.75rem; margin-bottom: 0.35rem;">Option B: Exporting SVG</h3>
       <ol>
-        <li>Open your board in <strong>KiCad PCB Editor</strong>.</li>
-        <li>Go to <strong>File &rarr; Export &rarr; DXF...</strong></li>
-        <li>Under <em>Layers to export</em>, check:
-          <br>&bull; <code>Edge.Cuts</code> (Board outline)
-          <br>&bull; <code>F.Cu</code> (Front copper traces)
-          <br>&bull; <code>NPTH</code> / <code>Drill</code> (Mounting & through holes)
-        </li>
-        <li>Ensure <strong>DXF Format</strong> is set to <strong>AutoCAD 2010</strong> or later.</li>
-        <li>Ensure <strong>Drill / Pad representation</strong> has outline or center holes enabled.</li>
-        <li>Click <strong>Export</strong> and drag the generated <code>.dxf</code> directly into PCB3D!</li>
+        <li>In KiCad PCB Editor, go to <strong>File &rarr; Export &rarr; SVG...</strong> (or <strong>File &rarr; Plot &rarr; SVG</strong>).</li>
+        <li>Select layers: <code>Edge.Cuts</code>, <code>F.Cu</code>, and <code>Drill</code> / <code>NPTH</code>.</li>
+        <li>Ensure layers are exported to a single combined file (or default layer groups).</li>
+        <li>Click <strong>Export</strong> and drop the <code>.svg</code> into PCB3D!</li>
       </ol>
     </div>
   </dialog>
@@ -321,6 +415,7 @@
     const btnGenerate = document.getElementById('btn-generate');
     const downloadCard = document.getElementById('download-card');
     const downloadStlLink = document.getElementById('download-stl-link');
+    const downloadScadLink = document.getElementById('download-scad-link');
     const alertError = document.getElementById('alert-error');
     const errorMessage = document.getElementById('error-message');
     const emptyOverlay = document.getElementById('empty-overlay');
@@ -334,6 +429,28 @@
     const btnOpenHelp = document.getElementById('btn-open-help');
     const btnCloseHelp = document.getElementById('btn-close-help');
 
+    // 2D DXF Viewport Elements
+    const dxfPane = document.getElementById('dxf-viewport-pane');
+    const dxfSvg = document.getElementById('dxf-svg');
+    const dxfOutlineLayer = document.getElementById('dxf-outline-layer');
+    const dxfTracesLayer = document.getElementById('dxf-traces-layer');
+    const dxfHolesLayer = document.getElementById('dxf-holes-layer');
+    const dxfFileBadge = document.getElementById('dxf-file-badge');
+    const dxfHudDim = document.getElementById('dxf-hud-dim');
+    const dxfHudCounts = document.getElementById('dxf-hud-counts');
+    const dxfEmptyOverlay = document.getElementById('dxf-empty-overlay');
+    const dxfTooltip = document.getElementById('dxf-tooltip');
+    const viewportsDivider = document.getElementById('viewports-divider');
+    const dxfCanvasContainer = document.getElementById('dxf-canvas-container');
+
+    // 2D DXF State
+    let currentDxfData = null;
+    let dxfViewBox = { x: 0, y: 0, w: 100, h: 100 };
+    let baseDxfViewBox = { x: 0, y: 0, w: 100, h: 100 };
+    let isDxfPanning = false;
+    let dxfPanStart = { x: 0, y: 0 };
+    let dxfLayersVisible = { outline: true, traces: true, holes: true };
+
     // Viewport & Three.js State
     let scene, camera, renderer, labelRenderer, controls, gridHelper;
     let currentMesh = null;
@@ -344,38 +461,48 @@
     let autoRotate = false;
     let isWireframe = false;
     let isGridVisible = true;
-    let currentTheme = 'pcb-green';
+    let currentTheme = 'normals';
     let useImperial = false;         // false = mm, true = inches
 
-    // Material Presets
-    const materials = {
-      'pcb-green': new THREE.MeshStandardMaterial({
-        color: 0x14532d,
-        roughness: 0.35,
-        metalness: 0.15,
-      }),
-      'stealth-black': new THREE.MeshStandardMaterial({
-        color: 0x1c1917,
-        roughness: 0.6,
-        metalness: 0.1,
-      }),
-      'tech-blue': new THREE.MeshStandardMaterial({
-        color: 0x0369a1,
-        roughness: 0.35,
-        metalness: 0.2,
-      }),
-      'fr4-yellow': new THREE.MeshStandardMaterial({
-        color: 0xa16207,
-        roughness: 0.45,
-        metalness: 0.1,
-      }),
-      'clay-white': new THREE.MeshStandardMaterial({
-        color: 0xe2e8f0,
-        roughness: 0.7,
-        metalness: 0.05,
-      }),
-      'normals': new THREE.MeshNormalMaterial()
-    };
+    // Interactive 3D ViewCube State
+    let cubeScene, cubeCamera, cubeRenderer, cubeMesh;
+    const cubeMaterials = [];
+    const cubeRaycaster = new THREE.Raycaster();
+    const cubeMouse = new THREE.Vector2();
+    let hoveredFaceIndex = -1;
+    let cameraTween = null;          // Smooth camera transition animation state
+    let resizeViewCube = null;       // Responsive resize handler for ViewCube canvas
+    const cubeLabels = ['RIGHT', 'LEFT', 'TOP', 'BOTTOM', 'FRONT', 'BACK'];
+
+    // Primary 3D Materials: Surface Normals / PCB Green Substrate + Polished Shiny Copper Trench Floor
+    const normalMaterial = new THREE.MeshNormalMaterial();
+    const greenMaterial = new THREE.MeshStandardMaterial({
+      color: 0x166534,       // Deep rich PCB solder mask green
+      roughness: 0.32,       // Semi-gloss PCB laminate finish
+      metalness: 0.08,
+      clearcoat: 0.25,
+      clearcoatRoughness: 0.15
+    });
+    const copperMaterial = new THREE.MeshStandardMaterial({
+      color: 0xfa8a4b,       // Warm bright metallic copper
+      metalness: 0.90,       // High metallic reflectance
+      roughness: 0.15,       // Polished shiny specular reflection
+      clearcoat: 0.40,       // Clearcoat sheen
+      clearcoatRoughness: 0.08
+    });
+    let currentSubstrateColor = 'normals';
+
+    function setSubstrateColor(colorName) {
+      currentSubstrateColor = colorName;
+      document.querySelectorAll('.color-swatch-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.color === colorName);
+      });
+      if (currentMesh && Array.isArray(currentMesh.material)) {
+        currentMesh.material[0] = colorName === 'green' ? greenMaterial : normalMaterial;
+        currentMesh.material.needsUpdate = true;
+        updateWireframeDisplay();
+      }
+    }
 
     function initThree() {
       const container = document.getElementById('viewer');
@@ -393,6 +520,8 @@
       renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       renderer.setSize(width, height);
+      renderer.toneMapping = THREE.LinearToneMapping;
+      renderer.toneMappingExposure = 1.35;
       renderer.shadowMap.enabled = true;
       renderer.shadowMap.type = THREE.PCFSoftShadowMap;
       renderer.domElement.id = 'webgl-canvas';
@@ -413,27 +542,69 @@
       controls.dampingFactor = 0.06;
       controls.maxDistance = 600;
       controls.minDistance = 5;
+      controls.addEventListener('start', () => {
+        cameraTween = null; // Interrupt camera tween if user starts manual navigation
+      });
 
-      // Lights
-      const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
+      // Add camera to scene for child headlight
+      scene.add(camera);
+
+      // Camera Headlight: provides direct frontal illumination as user orbits
+      const headLight = new THREE.DirectionalLight(0xffffff, 1.4);
+      headLight.position.set(0, 0, 1);
+      camera.add(headLight);
+
+      // Studio Lighting (Enhanced Brightness & 3-Point Fill)
+      const ambientLight = new THREE.AmbientLight(0xffffff, 2.2);
       scene.add(ambientLight);
 
-      const dirLight1 = new THREE.DirectionalLight(0xffffff, 2.0);
-      dirLight1.position.set(80, 120, 90);
+      const hemiLight = new THREE.HemisphereLight(0xffffff, 0x64748b, 1.8);
+      scene.add(hemiLight);
+
+      // Key Light: High frontal-right directional light
+      const dirLight1 = new THREE.DirectionalLight(0xffffff, 3.2);
+      dirLight1.position.set(80, 140, 90);
       scene.add(dirLight1);
 
-      const dirLight2 = new THREE.DirectionalLight(0x90b0d9, 1.0);
-      dirLight2.position.set(-80, -60, -90);
+      // Fill / Rim Light: Opposite rear-left directional light
+      const dirLight2 = new THREE.DirectionalLight(0xe0f2fe, 2.2);
+      dirLight2.position.set(-90, 120, -80);
       scene.add(dirLight2);
 
-      // Build Plate Grid
-      gridHelper = new THREE.GridHelper(160, 32, 0x3b82f6, 0x22324d);
+      // Bottom Bounce Light: Illuminates board underside and hole cavities
+      const dirLight3 = new THREE.DirectionalLight(0xffffff, 1.5);
+      dirLight3.position.set(0, -90, 20);
+      scene.add(dirLight3);
+
+      // Build Plate Grid (Crisp and brightened for high contrast)
+      gridHelper = new THREE.GridHelper(160, 32, 0x60a5fa, 0x334155);
       gridHelper.position.y = -0.05;
       scene.add(gridHelper);
 
       // Render Loop
       function animate() {
         requestAnimationFrame(animate);
+
+        // Smooth camera transition tween
+        if (cameraTween) {
+          const now = performance.now();
+          const elapsed = now - cameraTween.startTime;
+          const progress = Math.min(elapsed / cameraTween.duration, 1.0);
+          // Cubic ease-in-out curve
+          const t = progress < 0.5
+            ? 4 * progress * progress * progress
+            : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+
+          camera.position.lerpVectors(cameraTween.startPos, cameraTween.endPos, t);
+          controls.target.lerpVectors(cameraTween.startTarget, cameraTween.endTarget, t);
+          camera.up.lerpVectors(cameraTween.startUp, cameraTween.endUp, t).normalize();
+          camera.lookAt(controls.target);
+
+          if (progress >= 1.0) {
+            cameraTween = null;
+          }
+        }
+
         if (autoRotate && currentMesh) {
           controls.autoRotate = true;
           controls.autoRotateSpeed = 2.0;
@@ -443,21 +614,39 @@
         controls.update();
         renderer.render(scene, camera);
         labelRenderer.render(scene, camera);
+
+        // Synchronize ViewCube orientation with main camera
+        if (cubeCamera && cubeRenderer && cubeScene) {
+          const dir = new THREE.Vector3();
+          camera.getWorldDirection(dir);
+          cubeCamera.position.copy(dir).negate().multiplyScalar(4);
+          cubeCamera.up.copy(camera.up);
+          cubeCamera.lookAt(0, 0, 0);
+          cubeCamera.updateMatrixWorld();
+          cubeRenderer.render(cubeScene, cubeCamera);
+        }
       }
+      initViewCube();
       animate();
 
       // Responsive Resize
       window.addEventListener('resize', onWindowResize);
+      if (window.ResizeObserver && viewerContainer) {
+        const ro = new ResizeObserver(() => onWindowResize());
+        ro.observe(viewerContainer);
+      }
     }
 
     function onWindowResize() {
-      if (!renderer || !camera) return;
+      if (!renderer || !camera || !viewerContainer) return;
       const width = viewerContainer.clientWidth;
       const height = viewerContainer.clientHeight;
+      if (width === 0 || height === 0) return;
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
       renderer.setSize(width, height);
-      labelRenderer.setSize(width, height);
+      if (labelRenderer) labelRenderer.setSize(width, height);
+      if (typeof resizeViewCube === 'function') resizeViewCube();
     }
 
     // ─── Dimension Annotations ───────────────────────────────────────────────
@@ -469,6 +658,191 @@
         return inches.toFixed(3) + '"';
       }
       return mm.toFixed(1) + ' mm';
+    }
+
+    // ─── 2D DXF Circuit Vector Renderer ───────────────────────────────────────
+
+    function updateDxfViewBox() {
+      if (!dxfSvg) return;
+      dxfSvg.setAttribute('viewBox', `${dxfViewBox.x} ${dxfViewBox.y} ${dxfViewBox.w} ${dxfViewBox.h}`);
+    }
+
+    function positionDxfTooltip(e) {
+      if (!dxfPane || !dxfTooltip) return;
+      const rect = dxfPane.getBoundingClientRect();
+      dxfTooltip.style.left = `${e.clientX - rect.left}px`;
+      dxfTooltip.style.top = `${e.clientY - rect.top - 14}px`;
+    }
+
+    function updateDxfHudBadge() {
+      if (!currentDxfData) return;
+      const wStr = formatDim(currentDxfData.size[0]);
+      const hStr = formatDim(currentDxfData.size[1]);
+      dxfHudDim.textContent = `${wStr} × ${hStr}`;
+      dxfHudCounts.textContent = `${currentDxfData.stats.trace_count} traces, ${currentDxfData.stats.hole_count} holes`;
+    }
+
+    function clearDxf2D() {
+      currentDxfData = null;
+      if (dxfFileBadge) dxfFileBadge.textContent = 'No DXF loaded';
+      if (dxfEmptyOverlay) dxfEmptyOverlay.classList.remove('hidden');
+      if (dxfOutlineLayer) dxfOutlineLayer.innerHTML = '';
+      if (dxfTracesLayer) dxfTracesLayer.innerHTML = '';
+      if (dxfHolesLayer) dxfHolesLayer.innerHTML = '';
+      if (dxfHudDim) dxfHudDim.textContent = '0 × 0 mm';
+      if (dxfHudCounts) dxfHudCounts.textContent = '0 traces, 0 holes';
+      if (dxfTooltip) dxfTooltip.style.display = 'none';
+    }
+
+    function renderDxf2D(data, fileName) {
+      currentDxfData = data;
+      if (dxfFileBadge) dxfFileBadge.textContent = fileName;
+      if (dxfEmptyOverlay) dxfEmptyOverlay.classList.add('hidden');
+
+      const [minX, minY, maxX, maxY] = data.bounds;
+      const width = data.size[0];
+      const height = data.size[1];
+      const pad = Math.max(2.0, Math.max(width, height) * 0.08);
+
+      baseDxfViewBox = {
+        x: minX - pad,
+        y: minY - pad,
+        w: width + 2 * pad,
+        h: height + 2 * pad
+      };
+      dxfViewBox = { ...baseDxfViewBox };
+      updateDxfViewBox();
+
+      // Convert Cartesian Y (Y-up) to SVG Y (Y-down) for natural CAD top-view
+      const toSvgY = (y) => maxY + minY - y;
+
+      updateDxfHudBadge();
+
+      // Clear layers
+      dxfOutlineLayer.innerHTML = '';
+      dxfTracesLayer.innerHTML = '';
+      dxfHolesLayer.innerHTML = '';
+
+      // Render Outlines (Edge.Cuts)
+      if (data.outlines && data.outlines.length > 0) {
+        data.outlines.forEach(outline => {
+          const pts = outline.points.map(p => `${p[0]},${toSvgY(p[1])}`).join(' ');
+          const el = document.createElementNS('http://www.w3.org/2000/svg', outline.closed ? 'polygon' : 'polyline');
+          el.setAttribute('points', pts);
+          el.setAttribute('class', 'dxf-outline-shape');
+          dxfOutlineLayer.appendChild(el);
+        });
+      }
+
+      // Render Traces (F.Cu)
+      const traceWidth = (data.stats && data.stats.trace_width) || 0.4;
+      if (data.traces && data.traces.length > 0) {
+        data.traces.forEach(trace => {
+          const pts = trace.points.map(p => `${p[0]},${toSvgY(p[1])}`).join(' ');
+          const el = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+          el.setAttribute('points', pts);
+          el.setAttribute('stroke-width', Math.max(traceWidth, 0.4));
+          el.setAttribute('class', 'dxf-trace-path');
+          dxfTracesLayer.appendChild(el);
+        });
+      }
+
+      // Render Holes (Drill & NPTH)
+      if (data.holes && data.holes.length > 0) {
+        data.holes.forEach(hole => {
+          const sy = toSvgY(hole.y);
+          const isM4 = hole.radius >= 2.0;
+
+          const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+          g.setAttribute('class', `dxf-hole-group ${isM4 ? 'dxf-hole-m4' : ''}`);
+
+          // Outer copper annular pad ring
+          const padCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          padCircle.setAttribute('cx', hole.x);
+          padCircle.setAttribute('cy', sy);
+          padCircle.setAttribute('r', hole.radius + (isM4 ? 0.7 : 0.45));
+          padCircle.setAttribute('class', 'dxf-hole-pad');
+          g.appendChild(padCircle);
+
+          // Inner drill through-hole
+          const drillCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          drillCircle.setAttribute('cx', hole.x);
+          drillCircle.setAttribute('cy', sy);
+          drillCircle.setAttribute('r', hole.radius);
+          drillCircle.setAttribute('class', 'dxf-hole-drill');
+          g.appendChild(drillCircle);
+
+          // Center crosshair marker
+          const chL = isM4 ? 0.8 : 0.4;
+          const lineH = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          lineH.setAttribute('x1', hole.x - chL);
+          lineH.setAttribute('y1', sy);
+          lineH.setAttribute('x2', hole.x + chL);
+          lineH.setAttribute('y2', sy);
+          lineH.setAttribute('stroke', 'rgba(255, 255, 255, 0.45)');
+          lineH.setAttribute('stroke-width', '0.1');
+          g.appendChild(lineH);
+
+          const lineV = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          lineV.setAttribute('x1', hole.x);
+          lineV.setAttribute('y1', sy - chL);
+          lineV.setAttribute('x2', hole.x);
+          lineV.setAttribute('y2', sy + chL);
+          lineV.setAttribute('stroke', 'rgba(255, 255, 255, 0.45)');
+          lineV.setAttribute('stroke-width', '0.1');
+          g.appendChild(lineV);
+
+          // Hover events for tooltip
+          g.addEventListener('mouseenter', (e) => {
+            const diamStr = formatDim(hole.diameter);
+            const xStr = formatDim(hole.x);
+            const yStr = formatDim(hole.y);
+            dxfTooltip.innerHTML = `<strong>${isM4 ? 'M4 Mounting Hole' : 'Drill Through-Hole'}:</strong> Ø${diamStr} at (${xStr}, ${yStr})`;
+            dxfTooltip.style.display = 'block';
+            positionDxfTooltip(e);
+          });
+          g.addEventListener('mousemove', positionDxfTooltip);
+          g.addEventListener('mouseleave', () => {
+            dxfTooltip.style.display = 'none';
+          });
+
+          dxfHolesLayer.appendChild(g);
+        });
+      }
+    }
+
+    async function previewDxfFile(file, includeM4Bool) {
+      if (!file) {
+        clearDxf2D();
+        return;
+      }
+      try {
+        const formData = new FormData();
+        formData.append('dxf', file);
+        formData.append('include_m4', includeM4Bool ? '1' : '0');
+        const yamlEl = document.getElementById('mapping-yaml');
+        if (yamlEl && yamlEl.value.trim()) {
+          formData.append('mapping', yamlEl.value.trim());
+        }
+        const traceWEl = document.getElementById('trace_width');
+        if (traceWEl && traceWEl.value) {
+          formData.append('trace_width', traceWEl.value);
+        }
+
+        const res = await fetch('/api/dxf-preview', {
+          method: 'POST',
+          body: formData
+        });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || 'Failed to parse DXF circuit');
+        }
+        const data = await res.json();
+        renderDxf2D(data, file.name);
+        return data;
+      } catch (err) {
+        console.error('2D preview error:', err);
+      }
     }
 
     /**
@@ -582,15 +956,6 @@
         0x34d399   // green
       ));
 
-      // Height arrow — along Y axis, to the right and in front
-      dimensionGroup.add(makeDimArrow(
-        new THREE.Vector3(hw + GAP, 0,  hd + GAP),
-        new THREE.Vector3(hw + GAP, H,  hd + GAP),
-        new THREE.Vector3(0, 0, 0),
-        formatDim(H),
-        0xfbbf24   // amber
-      ));
-
       scene.add(dimensionGroup);
     }
 
@@ -630,9 +995,58 @@
         geometry.boundingBox.getSize(rotSize);
         geometry.translate(0, rotSize.y / 2, 0);
 
-        // Apply selected material
-        const mat = materials[currentTheme];
-        currentMesh = new THREE.Mesh(geometry, mat);
+        // Partition geometry triangles into Substrate (Surface Normals) and Trench Floor (Shiny Copper)
+        const pos = geometry.attributes.position;
+        const norm = geometry.attributes.normal;
+
+        const substratePositions = [];
+        const substrateNormals = [];
+        const copperPositions = [];
+        const copperNormals = [];
+
+        const topCutoff = rotSize.y - 0.02;
+        const bottomCutoff = 0.02;
+
+        for (let i = 0; i < pos.count; i += 3) {
+          const yAvg = (pos.getY(i) + pos.getY(i + 1) + pos.getY(i + 2)) / 3;
+          const nyAvg = (norm.getY(i) + norm.getY(i + 1) + norm.getY(i + 2)) / 3;
+
+          // Trench bottom floor: normal faces upward (ny > 0.85) and is strictly between board bottom and top surface
+          const isTrenchBottom = nyAvg > 0.85 && yAvg < topCutoff && yAvg > bottomCutoff;
+
+          if (isTrenchBottom) {
+            for (let v = 0; v < 3; v++) {
+              copperPositions.push(pos.getX(i + v), pos.getY(i + v), pos.getZ(i + v));
+              copperNormals.push(norm.getX(i + v), norm.getY(i + v), norm.getZ(i + v));
+            }
+          } else {
+            for (let v = 0; v < 3; v++) {
+              substratePositions.push(pos.getX(i + v), pos.getY(i + v), pos.getZ(i + v));
+              substrateNormals.push(norm.getX(i + v), norm.getY(i + v), norm.getZ(i + v));
+            }
+          }
+        }
+
+        const newPos = new Float32Array(pos.count * 3);
+        const newNorm = new Float32Array(pos.count * 3);
+        newPos.set(substratePositions, 0);
+        newPos.set(copperPositions, substratePositions.length);
+        newNorm.set(substrateNormals, 0);
+        newNorm.set(copperNormals, substrateNormals.length);
+
+        geometry.setAttribute('position', new THREE.BufferAttribute(newPos, 3));
+        geometry.setAttribute('normal', new THREE.BufferAttribute(newNorm, 3));
+
+        geometry.clearGroups();
+        const subCount = substratePositions.length / 3;
+        const copCount = copperPositions.length / 3;
+        geometry.addGroup(0, subCount, 0);          // Group 0: Surface Normals Substrate
+        if (copCount > 0) {
+          geometry.addGroup(subCount, copCount, 1); // Group 1: Shiny Copper Trench Floor
+        }
+
+        const subMat = currentSubstrateColor === 'green' ? greenMaterial : normalMaterial;
+        currentMesh = new THREE.Mesh(geometry, [subMat, copperMaterial]);
         currentMesh.castShadow = true;
         currentMesh.receiveShadow = true;
         scene.add(currentMesh);
@@ -642,7 +1056,7 @@
         const maxDim = Math.max(rotSize.x, rotSize.z, 50);
         const gridSize = Math.ceil((maxDim * 2) / 20) * 20;
         scene.remove(gridHelper);
-        gridHelper = new THREE.GridHelper(gridSize, gridSize / 5, 0x3b82f6, 0x22324d);
+        gridHelper = new THREE.GridHelper(gridSize, gridSize / 5, 0x60a5fa, 0x334155);
         gridHelper.position.y = 0;
         gridHelper.visible = isGridVisible;
         scene.add(gridHelper);
@@ -655,11 +1069,10 @@
         modelSizeMM = { x: size.x, y: size.z, z: size.y };
         buildDimensionArrows();
 
-        // Update HUD Stats
+        // Update HUD Stats (Width × Depth; Z axis omitted as user-defined)
         const hx = formatDim(modelSizeMM.x);
-        const hy = formatDim(modelSizeMM.y);
-        const hz = formatDim(modelSizeMM.z);
-        hudDim.textContent = `${hx} × ${hy} × ${hz}`;
+        const hd = formatDim(modelSizeMM.z);
+        hudDim.textContent = `${hx} × ${hd}`;
         const triCount = geometry.attributes.position.count / 3;
         hudTriangles.textContent = triCount.toLocaleString();
         hudBadge.classList.add('active');
@@ -687,29 +1100,260 @@
       controls.update();
     }
 
-    // Camera preset views
-    function setCameraView(type) {
-      if (!currentMesh) return;
-      const box = currentMesh.geometry.boundingBox;
-      const size = new THREE.Vector3();
-      box.getSize(size);
-      const maxDim = Math.max(size.x, size.y, size.z);
-      const dist = Math.max(maxDim * 2.2, 40);
-      const target = new THREE.Vector3(0, size.y / 2, 0);
-      controls.target.copy(target);
+    /** Smoothly tween camera to target position, target lookAt point, and up vector */
+    function startCameraTween(endPos, endTarget, endUp = new THREE.Vector3(0, 1, 0), duration = 400) {
+      cameraTween = {
+        startPos: camera.position.clone(),
+        endPos: endPos.clone(),
+        startTarget: controls.target.clone(),
+        endTarget: endTarget.clone(),
+        startUp: camera.up.clone(),
+        endUp: endUp.clone(),
+        startTime: performance.now(),
+        duration: duration
+      };
+    }
 
-      if (type === 'top') {
-        camera.position.set(0, dist * 1.4, 0.001);
-      } else if (type === 'front') {
-        camera.position.set(0, size.y / 2, dist);
-      } else if (type === 'iso') {
-        camera.position.set(dist * 0.7, dist * 0.9, dist * 1.1);
-      } else if (type === 'reset') {
-        fitCameraToMesh(currentMesh);
-        return;
+    // Camera preset views with smooth animation
+    function setCameraView(type) {
+      let target = new THREE.Vector3(0, 0, 0);
+      let dist = 140;
+
+      if (currentMesh && currentMesh.geometry && currentMesh.geometry.boundingBox) {
+        const box = currentMesh.geometry.boundingBox;
+        const size = new THREE.Vector3();
+        box.getSize(size);
+        const maxDim = Math.max(size.x, size.y, size.z);
+        dist = Math.max(maxDim * 2.2, 40);
+        target = new THREE.Vector3(0, size.y / 2, 0);
       }
-      camera.lookAt(target);
-      controls.update();
+
+      let newPos = new THREE.Vector3();
+      let newUp = new THREE.Vector3(0, 1, 0);
+
+      switch (type) {
+        case 'top':
+          newPos.set(target.x, target.y + dist * 1.4, target.z + 0.001);
+          newUp.set(0, 0, -1);
+          break;
+        case 'bottom':
+          newPos.set(target.x, target.y - dist * 1.4, target.z + 0.001);
+          newUp.set(0, 0, 1);
+          break;
+        case 'front':
+          newPos.set(target.x, target.y, target.z + dist);
+          newUp.set(0, 1, 0);
+          break;
+        case 'back':
+          newPos.set(target.x, target.y, target.z - dist);
+          newUp.set(0, 1, 0);
+          break;
+        case 'right':
+          newPos.set(target.x + dist, target.y, target.z);
+          newUp.set(0, 1, 0);
+          break;
+        case 'left':
+          newPos.set(target.x - dist, target.y, target.z);
+          newUp.set(0, 1, 0);
+          break;
+        case 'iso':
+        case 'reset':
+        default:
+          newPos.set(target.x + dist * 0.7, target.y + dist * 0.9, target.z + dist * 1.1);
+          newUp.set(0, 1, 0);
+          break;
+      }
+
+      startCameraTween(newPos, target, newUp, 450);
+    }
+
+    /** Generate high-resolution canvas texture for a ViewCube face with CAD typography */
+    function createFaceTexture(label, isHovered) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 256;
+      canvas.height = 256;
+      const ctx = canvas.getContext('2d');
+
+      // Background
+      ctx.fillStyle = isHovered ? '#2563eb' : '#1e293b';
+      ctx.fillRect(0, 0, 256, 256);
+
+      // Inner bevel lighting gradient
+      const grad = ctx.createLinearGradient(0, 0, 256, 256);
+      grad.addColorStop(0, isHovered ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.12)');
+      grad.addColorStop(1, 'rgba(0,0,0,0.3)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 256, 256);
+
+      // Border stroke
+      ctx.strokeStyle = isHovered ? '#93c5fd' : '#475569';
+      ctx.lineWidth = 12;
+      ctx.strokeRect(6, 6, 244, 244);
+
+      // Label text
+      ctx.font = 'bold 50px Inter, system-ui, -apple-system, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = isHovered ? '#ffffff' : '#cbd5e1';
+      ctx.fillText(label, 128, 128);
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.needsUpdate = true;
+      return texture;
+    }
+
+    /** Initialize secondary Three.js scene & renderer for ViewCube orientation gizmo */
+    function initViewCube() {
+      const cubeCanvas = document.getElementById('viewcube-canvas');
+      const cubeWrapper = document.getElementById('viewcube-wrapper');
+      if (!cubeCanvas || !cubeWrapper) return;
+
+      // ViewCube Scene
+      cubeScene = new THREE.Scene();
+
+      // ViewCube Orthographic Camera (tight frustum so cube fills canvas)
+      cubeCamera = new THREE.OrthographicCamera(-1.75, 1.75, 1.75, -1.75, 0.1, 50);
+
+      // ViewCube Renderer
+      cubeRenderer = new THREE.WebGLRenderer({
+        canvas: cubeCanvas,
+        alpha: true,
+        antialias: true
+      });
+
+      // Responsive canvas resizing function
+      resizeViewCube = function() {
+        if (!cubeRenderer || !cubeCanvas) return;
+        const rect = cubeCanvas.getBoundingClientRect();
+        const w = Math.round(rect.width) || 110;
+        const h = Math.round(rect.height) || 110;
+        cubeRenderer.setSize(w, h);
+        cubeRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      };
+      resizeViewCube();
+
+      if (window.ResizeObserver && cubeWrapper) {
+        const ro = new ResizeObserver(() => resizeViewCube());
+        ro.observe(cubeWrapper);
+      }
+
+      // ViewCube Geometry & Multi-Material Cube
+      const geom = new THREE.BoxGeometry(2, 2, 2);
+      cubeMaterials.length = 0;
+      for (let i = 0; i < 6; i++) {
+        cubeMaterials.push(new THREE.MeshBasicMaterial({
+          map: createFaceTexture(cubeLabels[i], false)
+        }));
+      }
+
+      cubeMesh = new THREE.Mesh(geom, cubeMaterials);
+
+      // Subtle edge bevel wireframe
+      const edgesGeom = new THREE.EdgesGeometry(geom);
+      const edgesMat = new THREE.LineBasicMaterial({ color: 0x64748b, linewidth: 2 });
+      cubeMesh.add(new THREE.LineSegments(edgesGeom, edgesMat));
+
+      cubeScene.add(cubeMesh);
+
+      // Face normal vectors for generous proximity hit-testing
+      const faceNormals = [
+        new THREE.Vector3(1, 0, 0),  // RIGHT (0)
+        new THREE.Vector3(-1, 0, 0), // LEFT (1)
+        new THREE.Vector3(0, 1, 0),  // TOP (2)
+        new THREE.Vector3(0, -1, 0), // BOTTOM (3)
+        new THREE.Vector3(0, 0, 1),  // FRONT (4)
+        new THREE.Vector3(0, 0, -1)  // BACK (5)
+      ];
+
+      /** Detect face under mouse with generous proximity tolerance */
+      function getHitFaceIndex(clientX, clientY) {
+        const rect = cubeCanvas.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return -1;
+        const x = ((clientX - rect.left) / rect.width) * 2 - 1;
+        const y = -((clientY - rect.top) / rect.height) * 2 + 1;
+
+        cubeCamera.updateMatrixWorld();
+        cubeMesh.updateMatrixWorld();
+
+        cubeRaycaster.setFromCamera(new THREE.Vector2(x, y), cubeCamera);
+        const intersects = cubeRaycaster.intersectObject(cubeMesh, false);
+
+        if (intersects.length > 0 && intersects[0].face) {
+          return intersects[0].face.materialIndex;
+        }
+
+        // Generous Proximity Fallback:
+        // When clicking/hovering near an edge or face boundary, pick the closest visible front-facing face
+        let closestFace = -1;
+        let minDistanceSq = 0.35; // Generous NDC tolerance (~35% of half-screen)
+
+        const camDir = new THREE.Vector3();
+        cubeCamera.getWorldDirection(camDir).negate();
+
+        for (let i = 0; i < 6; i++) {
+          const normal = faceNormals[i];
+          if (normal.dot(camDir) > 0.05) {
+            const proj = normal.clone().project(cubeCamera);
+            const dx = proj.x - x;
+            const dy = proj.y - y;
+            const distSq = dx * dx + dy * dy;
+            if (distSq < minDistanceSq) {
+              minDistanceSq = distSq;
+              closestFace = i;
+            }
+          }
+        }
+        return closestFace;
+      }
+
+      // Pointer event handlers for effortless, reliable clicking
+      let pointerDownPos = null;
+      const faceViews = ['right', 'left', 'top', 'bottom', 'front', 'back'];
+
+      cubeCanvas.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return;
+        pointerDownPos = { x: e.clientX, y: e.clientY };
+      });
+
+      cubeCanvas.addEventListener('pointerup', (e) => {
+        if (!pointerDownPos) return;
+        const dx = e.clientX - pointerDownPos.x;
+        const dy = e.clientY - pointerDownPos.y;
+        pointerDownPos = null;
+        if (Math.hypot(dx, dy) < 10) {
+          const faceIndex = getHitFaceIndex(e.clientX, e.clientY);
+          if (faceIndex !== -1) {
+            setCameraView(faceViews[faceIndex]);
+          }
+        }
+      });
+
+      cubeCanvas.addEventListener('pointermove', (e) => {
+        const faceIndex = getHitFaceIndex(e.clientX, e.clientY);
+        if (hoveredFaceIndex !== faceIndex) {
+          if (hoveredFaceIndex !== -1) {
+            cubeMaterials[hoveredFaceIndex].map = createFaceTexture(cubeLabels[hoveredFaceIndex], false);
+            cubeMaterials[hoveredFaceIndex].map.needsUpdate = true;
+          }
+          hoveredFaceIndex = faceIndex;
+          if (faceIndex !== -1) {
+            cubeMaterials[faceIndex].map = createFaceTexture(cubeLabels[faceIndex], true);
+            cubeMaterials[faceIndex].map.needsUpdate = true;
+            cubeCanvas.style.cursor = 'pointer';
+          } else {
+            cubeCanvas.style.cursor = 'grab';
+          }
+        }
+      });
+
+      cubeCanvas.addEventListener('pointerleave', () => {
+        if (hoveredFaceIndex !== -1) {
+          cubeMaterials[hoveredFaceIndex].map = createFaceTexture(cubeLabels[hoveredFaceIndex], false);
+          cubeMaterials[hoveredFaceIndex].map.needsUpdate = true;
+          hoveredFaceIndex = -1;
+          cubeCanvas.style.cursor = 'grab';
+        }
+      });
     }
 
     // Wireframe Mode: clean CAD edges visible, surfaces transparent
@@ -729,34 +1373,28 @@
         currentMesh.add(edgeLines);
       }
 
+      const mats = Array.isArray(currentMesh.material) ? currentMesh.material : [currentMesh.material];
       if (isWireframe) {
         edgeLines.visible = true;
         // Make the mesh surfaces completely transparent so only model edges are visible
-        currentMesh.material.transparent = true;
-        currentMesh.material.opacity = 0.0;
-        currentMesh.material.depthWrite = false;
-        currentMesh.material.needsUpdate = true;
+        mats.forEach(mat => {
+          mat.transparent = true;
+          mat.opacity = 0.0;
+          mat.depthWrite = false;
+          mat.needsUpdate = true;
+        });
       } else {
         if (edgeLines) edgeLines.visible = false;
         // Restore standard opaque surface
-        currentMesh.material.transparent = false;
-        currentMesh.material.opacity = 1.0;
-        currentMesh.material.depthWrite = true;
-        currentMesh.material.needsUpdate = true;
+        mats.forEach(mat => {
+          mat.transparent = false;
+          mat.opacity = 1.0;
+          mat.depthWrite = true;
+          mat.needsUpdate = true;
+        });
       }
     }
 
-    // Apply Material / Theme
-    function applyMaterial(themeName) {
-      currentTheme = themeName;
-      document.querySelectorAll('.color-swatch-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.theme === themeName);
-      });
-      if (currentMesh) {
-        currentMesh.material = materials[themeName];
-        updateWireframeDisplay();
-      }
-    }
 
     // UI Helpers
     function showError(msg) {
@@ -774,9 +1412,11 @@
         fileSizeDisplay.textContent = (file.size / 1024).toFixed(1) + ' KB';
         fileBadge.classList.add('active');
         clearError();
+        previewDxfFile(file, toggleM4Holes.checked);
       } else {
         fileBadge.classList.remove('active');
         fileInput.value = '';
+        clearDxf2D();
       }
     }
 
@@ -797,94 +1437,129 @@
       });
     });
 
+    let currentSampleId = null;
+
     dropzone.addEventListener('drop', e => {
       if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
         const file = e.dataTransfer.files[0];
-        if (file.name.toLowerCase().endsWith('.dxf')) {
+        if (/\.(dxf|svg)$/i.test(file.name)) {
+          currentSampleId = null;
           fileInput.files = e.dataTransfer.files;
           updateFileDisplay(file);
         } else {
-          showError('Please drop a valid .dxf file.');
+          showError('Please drop a valid .dxf or .svg file.');
         }
       }
     });
 
     fileInput.addEventListener('change', () => {
       if (fileInput.files.length > 0) {
+        currentSampleId = null;
         updateFileDisplay(fileInput.files[0]);
       }
     });
 
     btnRemoveFile.addEventListener('click', () => {
+      currentSampleId = null;
       updateFileDisplay(null);
     });
 
-// Sample Board Loader
-btnLoadSample.addEventListener('click', async () => {
-  try {
-    btnLoadSample.disabled = true;
-    btnLoadSample.textContent = 'Loading sample...';
-    const includeM4 = toggleM4Holes.checked ? '1' : '0';
-    const select = document.getElementById('sample-select');
-    const sampleId = select.value;
-    const res = await fetch(`/api/sample-dxf?id=${sampleId}&m4_holes=${includeM4}`);
-    if (!res.ok) throw new Error('Sample DXF unavailable');
-    const blob = await res.blob();
-    const fileName = `${sampleId}${includeM4 === '1' ? '_with_m4' : '_no_m4'}.dxf`;
-    const file = new File([blob], fileName, { type: 'application/dxf' });
-    const dt = new DataTransfer();
-    dt.items.add(file);
-    fileInput.files = dt.files;
-    updateFileDisplay(file);
-    // Automatically submit to preview right away
-    form.dispatchEvent(new Event('submit', { cancelable: true }));
-  } catch (err) {
-    showError('Could not load sample board: ' + err.message);
-  } finally {
-    btnLoadSample.disabled = false;
-    btnLoadSample.innerHTML = `
-      <span class="material-symbols-outlined" style="font-size: 16px;">bolt</span>
-      Load Sample
-    `;
-  }
-});
-
-// Populate sample dropdown from API
-async function populateSampleDropdown() {
-  try {
-    const res = await fetch('/api/samples');
-    if (!res.ok) throw new Error('Failed to fetch samples');
-    const catalog = await res.json();
-    const select = document.getElementById('sample-select');
-    // Clear existing options
-    select.innerHTML = '';
-    catalog.forEach(sample => {
-      const opt = document.createElement('option');
-      opt.value = sample.id;
-      opt.textContent = sample.name;
-      select.appendChild(opt);
-    });
-    // If there is at least one sample, select the first
-    if (catalog.length > 0) {
-      select.value = catalog[0].id;
+    // Dedicated function to fetch and load sample DXF
+    async function loadSampleBoard(sampleId, includeM4Bool) {
+      try {
+        btnLoadSample.disabled = true;
+        btnLoadSample.textContent = 'Loading...';
+        const includeM4Param = includeM4Bool ? '1' : '0';
+        const res = await fetch(`/api/sample-dxf?id=${encodeURIComponent(sampleId)}&m4_holes=${includeM4Param}`);
+        if (!res.ok) throw new Error('Sample DXF unavailable');
+        const blob = await res.blob();
+        const fileName = `${sampleId}${includeM4Bool ? '_with_m4' : '_no_m4'}.dxf`;
+        const file = new File([blob], fileName, { type: 'application/dxf' });
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        fileInput.files = dt.files;
+        currentSampleId = sampleId;
+        updateFileDisplay(file);
+        await previewDxfFile(file, includeM4Bool);
+        // Automatically submit to preview right away
+        form.dispatchEvent(new Event('submit', { cancelable: true }));
+      } catch (err) {
+        showError('Could not load sample board: ' + err.message);
+      } finally {
+        btnLoadSample.disabled = false;
+        btnLoadSample.innerHTML = `
+          <span class="material-symbols-outlined" style="font-size: 16px;">bolt</span>
+          Load
+        `;
+      }
     }
-  } catch (e) {
-    console.error(e);
-  }
-}
 
-// Call populate on load
-populateSampleDropdown();
+    // Sample Board Loader button
+    btnLoadSample.addEventListener('click', () => {
+      const select = document.getElementById('sample-select');
+      const sampleId = select.value || 'sample_pcb';
+      loadSampleBoard(sampleId, toggleM4Holes.checked);
+    });
+
+    // Real-time synchronization when M4 mounting holes checkbox toggles
+    toggleM4Holes.addEventListener('change', async () => {
+      if (currentSampleId) {
+        // If a sample circuit board is active, re-fetch the sample DXF with the new M4 setting
+        // to automatically resize outline (32x22 vs 44x28) and add/remove M4 holes
+        await loadSampleBoard(currentSampleId, toggleM4Holes.checked);
+      } else if (fileInput.files && fileInput.files.length > 0) {
+        await previewDxfFile(fileInput.files[0], toggleM4Holes.checked);
+        // If custom DXF is loaded, trigger re-generation with updated include_m4 parameter
+        form.dispatchEvent(new Event('submit', { cancelable: true }));
+      }
+    });
+
+    // Populate sample dropdown from API
+    async function populateSampleDropdown() {
+      try {
+        const res = await fetch('/api/samples');
+        if (!res.ok) throw new Error('Failed to fetch samples');
+        const catalog = await res.json();
+        const select = document.getElementById('sample-select');
+        // Clear existing options
+        select.innerHTML = '';
+        catalog.forEach(sample => {
+          const opt = document.createElement('option');
+          opt.value = sample.id;
+          opt.textContent = sample.name;
+          select.appendChild(opt);
+        });
+
+        // Auto-load on selection change from dropdown
+        select.addEventListener('change', () => {
+          const sampleId = select.value || 'sample_pcb';
+          loadSampleBoard(sampleId, toggleM4Holes.checked);
+        });
+
+        // Load initial preset sample so both 2D and 3D visualizers display the circuit on startup
+        if (catalog.length > 0) {
+          select.value = catalog[0].id;
+          await loadSampleBoard(catalog[0].id, toggleM4Holes.checked);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    // Call populate on load
+    populateSampleDropdown();
 
     // Toolbar Listeners
-    document.getElementById('btn-view-iso').addEventListener('click', () => setCameraView('iso'));
-    document.getElementById('btn-view-top').addEventListener('click', () => setCameraView('top'));
-    document.getElementById('btn-view-front').addEventListener('click', () => setCameraView('front'));
-    document.getElementById('btn-view-reset').addEventListener('click', () => setCameraView('reset'));
-
     document.querySelectorAll('.color-swatch-btn').forEach(btn => {
-      btn.addEventListener('click', () => applyMaterial(btn.dataset.theme));
+      btn.addEventListener('click', () => {
+        setSubstrateColor(btn.dataset.color);
+      });
     });
+
+    const btnViewHome = document.getElementById('btn-viewcube-home');
+    if (btnViewHome) {
+      btnViewHome.addEventListener('click', () => setCameraView('iso'));
+    }
 
     const btnWireframe = document.getElementById('btn-toggle-wireframe');
     btnWireframe.addEventListener('click', () => {
@@ -922,11 +1597,12 @@ populateSampleDropdown();
       btnUnitToggle.classList.toggle('imperial', useImperial);
       // Rebuild 3D dimension arrows with new unit labels
       buildDimensionArrows();
-      // Update HUD badge
+      // Update HUD badge (Width × Depth; Z axis omitted as user-defined)
       if (modelSizeMM) {
         hudDim.textContent =
-          `${formatDim(modelSizeMM.x)} × ${formatDim(modelSizeMM.y)} × ${formatDim(modelSizeMM.z)}`;
+          `${formatDim(modelSizeMM.x)} × ${formatDim(modelSizeMM.z)}`;
       }
+      updateDxfHudBadge();
     });
 
     // Modal Listeners
@@ -946,12 +1622,22 @@ populateSampleDropdown();
         return;
       }
 
+      // If a sample board is active, ensure the file matches the current toggleM4Holes state
+      if (currentSampleId) {
+        const expectedSuffix = toggleM4Holes.checked ? '_with_m4.dxf' : '_no_m4.dxf';
+        if (!fileInput.files[0].name.endsWith(expectedSuffix)) {
+          await loadSampleBoard(currentSampleId, toggleM4Holes.checked);
+          return;
+        }
+      }
+
       // UI state: loading
       btnGenerate.disabled = true;
       loadingOverlay.classList.add('active');
       loadingStep.textContent = 'Uploading DXF & parsing layers...';
 
       const formData = new FormData(form);
+      formData.set('include_m4', toggleM4Holes.checked ? '1' : '0');
 
       try {
         const stepTimer = setTimeout(() => {
@@ -973,10 +1659,19 @@ populateSampleDropdown();
         loadingStep.textContent = 'Loading 3D mesh into viewport...';
         loadSTL(result.stl_url);
 
-        // Update download card
+        // Update download card with STL and SCAD links
         downloadStlLink.href = result.stl_url;
-        downloadStlLink.setAttribute('download', `${fileInput.files[0].name.replace(/\.dxf$/i, '')}_pcb3d.stl`);
+        downloadStlLink.setAttribute('download', `${fileInput.files[0].name.replace(/\.(dxf|svg)$/i, '')}_pcb3d.stl`);
+        if (result.scad_url && downloadScadLink) {
+          downloadScadLink.href = result.scad_url;
+          downloadScadLink.setAttribute('download', `${fileInput.files[0].name.replace(/\.(dxf|svg)$/i, '')}_pcb3d.scad`);
+        }
         downloadCard.classList.add('active');
+
+        // Always synchronize 2D circuit layout with generated geometry
+        if (result.dxf) {
+          renderDxf2D(result.dxf, fileInput.files[0].name);
+        }
       } catch (err) {
         showError(err.message);
       } finally {
@@ -987,6 +1682,131 @@ populateSampleDropdown();
 
     // Initialize 3D on load
     initThree();
+
+    // ─── 2D DXF Viewport Interactions ─────────────────────────────────────────
+
+    // 2D Pan with Mouse Drag
+    dxfCanvasContainer.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      isDxfPanning = true;
+      dxfPanStart = { x: e.clientX, y: e.clientY };
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isDxfPanning) return;
+      const dx = e.clientX - dxfPanStart.x;
+      const dy = e.clientY - dxfPanStart.y;
+      dxfPanStart = { x: e.clientX, y: e.clientY };
+
+      const rect = dxfCanvasContainer.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+      const scaleX = dxfViewBox.w / rect.width;
+      const scaleY = dxfViewBox.h / rect.height;
+
+      dxfViewBox.x -= dx * scaleX;
+      dxfViewBox.y -= dy * scaleY;
+      updateDxfViewBox();
+    });
+
+    window.addEventListener('mouseup', () => {
+      isDxfPanning = false;
+    });
+
+    // 2D Zoom with Scroll Wheel
+    dxfCanvasContainer.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const rect = dxfCanvasContainer.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      const cursorSvgX = dxfViewBox.x + (mouseX / rect.width) * dxfViewBox.w;
+      const cursorSvgY = dxfViewBox.y + (mouseY / rect.height) * dxfViewBox.h;
+
+      const zoomFactor = e.deltaY < 0 ? 0.85 : 1.18;
+      const newW = dxfViewBox.w * zoomFactor;
+      const newH = dxfViewBox.h * zoomFactor;
+
+      dxfViewBox.x = cursorSvgX - (mouseX / rect.width) * newW;
+      dxfViewBox.y = cursorSvgY - (mouseY / rect.height) * newH;
+      dxfViewBox.w = newW;
+      dxfViewBox.h = newH;
+      updateDxfViewBox();
+    }, { passive: false });
+
+    dxfCanvasContainer.addEventListener('dblclick', () => {
+      dxfViewBox = { ...baseDxfViewBox };
+      updateDxfViewBox();
+    });
+
+    document.getElementById('btn-dxf-fit').addEventListener('click', () => {
+      dxfViewBox = { ...baseDxfViewBox };
+      updateDxfViewBox();
+    });
+
+    document.getElementById('btn-dxf-zoom-in').addEventListener('click', () => {
+      const centerX = dxfViewBox.x + dxfViewBox.w / 2;
+      const centerY = dxfViewBox.y + dxfViewBox.h / 2;
+      dxfViewBox.w *= 0.8;
+      dxfViewBox.h *= 0.8;
+      dxfViewBox.x = centerX - dxfViewBox.w / 2;
+      dxfViewBox.y = centerY - dxfViewBox.h / 2;
+      updateDxfViewBox();
+    });
+
+    document.getElementById('btn-dxf-zoom-out').addEventListener('click', () => {
+      const centerX = dxfViewBox.x + dxfViewBox.w / 2;
+      const centerY = dxfViewBox.y + dxfViewBox.h / 2;
+      dxfViewBox.w *= 1.25;
+      dxfViewBox.h *= 1.25;
+      dxfViewBox.x = centerX - dxfViewBox.w / 2;
+      dxfViewBox.y = centerY - dxfViewBox.h / 2;
+      updateDxfViewBox();
+    });
+
+    // 2D Layer Visibility Toggles
+    ['outline', 'traces', 'holes'].forEach(layer => {
+      const pill = document.getElementById(`pill-layer-${layer}`);
+      const targetGroup = document.getElementById(`dxf-${layer}-layer`);
+      if (pill && targetGroup) {
+        pill.addEventListener('click', () => {
+          dxfLayersVisible[layer] = !dxfLayersVisible[layer];
+          pill.classList.toggle('active', dxfLayersVisible[layer]);
+          targetGroup.style.display = dxfLayersVisible[layer] ? '' : 'none';
+        });
+      }
+    });
+
+    // Viewports Splitter Drag Interaction
+    let isResizingViewports = false;
+    viewportsDivider.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      isResizingViewports = true;
+      viewportsDivider.classList.add('dragging');
+      document.body.style.cursor = 'row-resize';
+      document.body.style.userSelect = 'none';
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isResizingViewports) return;
+      const columnRect = document.getElementById('viewports-column').getBoundingClientRect();
+      const offsetTop = e.clientY - columnRect.top;
+      const minHeight = 150;
+      const maxHeight = columnRect.height - minHeight;
+      const clampedHeight = Math.max(minHeight, Math.min(maxHeight, offsetTop));
+      dxfPane.style.flex = `0 0 ${clampedHeight}px`;
+      onWindowResize();
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (isResizingViewports) {
+        isResizingViewports = false;
+        viewportsDivider.classList.remove('dragging');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        onWindowResize();
+      }
+    });
   </script>
 </body>
 </html>

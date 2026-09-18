@@ -628,6 +628,13 @@ details.advanced-panel[open] summary .material-symbols-outlined {
   display: flex;
 }
 
+.download-actions-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+}
+
 .btn-download {
   background: linear-gradient(135deg, #10b981, #059669);
   color: #fff;
@@ -649,6 +656,21 @@ details.advanced-panel[open] summary .material-symbols-outlined {
 .btn-download:hover {
   background: linear-gradient(135deg, #34d399, #10b981);
   box-shadow: 0 6px 18px rgba(16, 185, 129, 0.45);
+  transform: translateY(-1px);
+}
+
+.btn-download-scad {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.85), rgba(15, 23, 42, 0.95));
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.3);
+}
+
+.btn-download-scad:hover {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(14, 165, 233, 0.25));
+  border-color: rgba(56, 189, 248, 0.65);
+  box-shadow: 0 6px 18px rgba(56, 189, 248, 0.25);
+  color: #7dd3fc;
   transform: translateY(-1px);
 }
 
@@ -678,15 +700,376 @@ details.advanced-panel[open] summary .material-symbols-outlined {
   margin-top: 1px;
 }
 
-/* Viewport Area */
+/* Right Column Viewports Layout */
+.viewports-column {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 65px);
+  overflow: hidden;
+  position: relative;
+  background: #090d16;
+}
+
+@media (max-width: 960px) {
+  .viewports-column {
+    height: auto;
+    overflow: visible;
+  }
+}
+
+/* 2D DXF Viewport Pane */
+.dxf-viewport-pane {
+  flex: 0 0 45%;
+  min-height: 180px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: radial-gradient(circle at center, #111827 0%, #080c14 100%);
+  border-bottom: 1px solid var(--border-subtle);
+  overflow: hidden;
+}
+
+@media (max-width: 960px) {
+  .dxf-viewport-pane {
+    height: 360px;
+    flex: none;
+  }
+}
+
+/* 2D DXF Toolbar (Scales fluidly with screen size) */
+.dxf-toolbar {
+  position: absolute;
+  top: clamp(0.5rem, 0.9vw, 1.25rem);
+  left: clamp(0.5rem, 0.9vw, 1.25rem);
+  right: clamp(0.5rem, 0.9vw, 1.25rem);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(0.35rem, 0.6vw, 0.85rem);
+  z-index: 10;
+  pointer-events: none;
+}
+
+.dxf-title-group,
+.dxf-layer-group,
+.dxf-actions-group {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.25rem, 0.4vw, 0.55rem);
+  background: rgba(17, 23, 38, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-subtle);
+  border-radius: clamp(6px, 0.6vw, 12px);
+  padding: clamp(0.2rem, 0.3vw, 0.45rem) clamp(0.4rem, 0.55vw, 0.75rem);
+  pointer-events: auto;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.dxf-title-icon {
+  font-size: clamp(15px, 1.1vw, 20px);
+  color: var(--accent-blue);
+}
+
+.dxf-title-text {
+  font-size: clamp(0.725rem, 0.8vw, 0.925rem);
+  font-weight: 600;
+  color: var(--text-main);
+  letter-spacing: 0.02em;
+}
+
+.dxf-file-badge {
+  font-size: clamp(0.625rem, 0.7vw, 0.8125rem);
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.05);
+  padding: clamp(0.1rem, 0.15vw, 0.2rem) clamp(0.3rem, 0.4vw, 0.55rem);
+  border-radius: clamp(3px, 0.3vw, 5px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  max-width: clamp(140px, 15vw, 260px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Layer Pills */
+.dxf-layer-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: clamp(0.25rem, 0.35vw, 0.45rem);
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-faint);
+  font-family: var(--font-sans);
+  font-size: clamp(0.65rem, 0.72vw, 0.85rem);
+  font-weight: 500;
+  padding: clamp(0.2rem, 0.3vw, 0.4rem) clamp(0.35rem, 0.5vw, 0.65rem);
+  border-radius: clamp(4px, 0.35vw, 6px);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.dxf-layer-pill:hover {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dxf-layer-pill.active {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.dxf-pill-dot {
+  width: clamp(7px, 0.6vw, 10px);
+  height: clamp(7px, 0.6vw, 10px);
+  border-radius: 50%;
+  display: inline-block;
+  opacity: 0.35;
+  transition: opacity 0.15s ease;
+}
+
+.dxf-layer-pill.active .dxf-pill-dot {
+  opacity: 1;
+}
+
+.dot-outline {
+  background: #eab308;
+  box-shadow: 0 0 6px rgba(234, 179, 8, 0.5);
+}
+
+.dot-traces {
+  background: #f97316;
+  box-shadow: 0 0 6px rgba(249, 115, 22, 0.5);
+}
+
+.dot-holes {
+  background: #38bdf8;
+  box-shadow: 0 0 6px rgba(56, 189, 248, 0.5);
+}
+
+/* 2D SVG Canvas Container */
+.dxf-canvas-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  cursor: grab;
+  overflow: hidden;
+}
+
+.dxf-canvas-container:active {
+  cursor: grabbing;
+}
+
+.dxf-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* 2D HUD Badge (Scales fluidly) */
+.dxf-hud-badge {
+  position: absolute;
+  bottom: clamp(0.5rem, 0.9vw, 1.25rem);
+  right: clamp(0.5rem, 0.9vw, 1.25rem);
+  background: rgba(17, 23, 38, 0.85);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border-subtle);
+  border-radius: clamp(6px, 0.6vw, 10px);
+  padding: clamp(0.35rem, 0.45vw, 0.65rem) clamp(0.5rem, 0.65vw, 0.95rem);
+  font-family: var(--font-mono);
+  font-size: clamp(0.6875rem, 0.75vw, 0.875rem);
+  color: var(--text-muted);
+  pointer-events: none;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.15rem, 0.25vw, 0.35rem);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* 2D Navigation Hints (Scales fluidly) */
+.dxf-nav-hints {
+  position: absolute;
+  bottom: clamp(0.5rem, 0.9vw, 1.25rem);
+  left: clamp(0.5rem, 0.9vw, 1.25rem);
+  display: flex;
+  align-items: center;
+  gap: clamp(0.4rem, 0.6vw, 0.85rem);
+  font-size: clamp(0.65rem, 0.72vw, 0.85rem);
+  color: var(--text-faint);
+  pointer-events: none;
+  z-index: 10;
+}
+
+.dxf-nav-hints kbd {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: clamp(3px, 0.3vw, 5px);
+  padding: clamp(0.05rem, 0.1vw, 0.15rem) clamp(0.2rem, 0.3vw, 0.4rem);
+  font-family: var(--font-mono);
+  font-size: clamp(0.6rem, 0.68vw, 0.8rem);
+  color: var(--text-muted);
+}
+
+/* 2D Empty Overlay (Scales fluidly) */
+.dxf-empty-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  pointer-events: none;
+  padding: clamp(0.75rem, 1.5vw, 2rem);
+  transition: opacity 0.25s ease;
+  z-index: 5;
+}
+
+.dxf-empty-icon {
+  font-size: clamp(32px, 3vw, 48px);
+  color: rgba(96, 165, 250, 0.4);
+  margin-bottom: clamp(0.25rem, 0.5vw, 0.75rem);
+}
+
+.dxf-empty-title {
+  font-size: clamp(0.85rem, 0.95vw, 1.1rem);
+  font-weight: 600;
+  color: var(--text-main);
+  margin-bottom: 0.25rem;
+}
+
+.dxf-empty-desc {
+  font-size: clamp(0.7rem, 0.78vw, 0.875rem);
+  color: var(--text-muted);
+  max-width: clamp(240px, 30vw, 400px);
+}
+
+.dxf-empty-overlay.hidden {
+  opacity: 0;
+  visibility: hidden;
+}
+
+/* 2D Hover Tooltip */
+.dxf-tooltip {
+  position: absolute;
+  background: rgba(15, 23, 42, 0.94);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--accent-blue);
+  border-radius: clamp(4px, 0.35vw, 6px);
+  padding: clamp(0.3rem, 0.4vw, 0.55rem) clamp(0.5rem, 0.65vw, 0.85rem);
+  font-family: var(--font-mono);
+  font-size: clamp(0.6875rem, 0.75vw, 0.875rem);
+  color: #f8fafc;
+  pointer-events: none;
+  z-index: 20;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  transform: translate(-50%, -125%);
+  display: none;
+  white-space: nowrap;
+}
+
+/* Viewports Divider (Splitter Handle) */
+.viewports-divider {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  cursor: row-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 15;
+  transition: background 0.15s ease;
+  user-select: none;
+}
+
+.viewports-divider:hover,
+.viewports-divider.dragging {
+  background: rgba(59, 130, 246, 0.35);
+}
+
+.divider-handle {
+  width: 36px;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 1px;
+}
+
+.viewports-divider:hover .divider-handle,
+.viewports-divider.dragging .divider-handle {
+  background: var(--accent-blue);
+}
+
+/* SVG Vector Styles */
+.dxf-outline-shape {
+  stroke: #eab308;
+  stroke-width: 0.35;
+  fill: rgba(234, 179, 8, 0.03);
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.dxf-trace-path {
+  stroke: #f97316;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: stroke 0.15s ease, filter 0.15s ease;
+}
+
+.dxf-trace-path:hover {
+  stroke: #fed7aa;
+  cursor: pointer;
+  filter: drop-shadow(0 0 2px #f97316);
+}
+
+.dxf-hole-group {
+  cursor: pointer;
+}
+
+.dxf-hole-pad {
+  fill: rgba(251, 191, 36, 0.2);
+  stroke: #fbbf24;
+  stroke-width: 0.25;
+}
+
+.dxf-hole-drill {
+  fill: #060910;
+  stroke: #38bdf8;
+  stroke-width: 0.25;
+  transition: stroke 0.15s ease, fill 0.15s ease;
+}
+
+.dxf-hole-group:hover .dxf-hole-drill {
+  stroke: #93c5fd;
+  fill: rgba(56, 189, 248, 0.35);
+}
+
+.dxf-hole-m4 .dxf-hole-drill {
+  stroke: #0ea5e9;
+  stroke-dasharray: 1 0.5;
+}
+
+/* Viewport Area (3D Bottom Pane) */
 .viewport-container {
   position: relative;
-  background: radial-gradient(circle at center, #151d30 0%, #0b0f19 85%);
+  background: radial-gradient(circle at center, #1e293b 0%, #0f172a 85%);
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  flex: 1 1 55%;
+  min-height: 200px;
+}
+
+#viewer {
+  width: 100%;
   height: 100%;
+  position: absolute;
+  inset: 0;
 }
 
 #webgl-canvas {
@@ -703,28 +1086,89 @@ details.advanced-panel[open] summary .material-symbols-outlined {
 /* Floating Viewport Toolbar */
 .viewport-toolbar {
   position: absolute;
-  top: 1rem;
-  left: 1rem;
-  right: 1rem;
+  top: clamp(0.75rem, 1.2vw, 1.5rem);
+  left: clamp(0.75rem, 1.2vw, 1.5rem);
+  right: clamp(0.75rem, 1.2vw, 1.5rem);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   pointer-events: none;
   z-index: 10;
-  gap: 0.75rem;
+  gap: clamp(0.5rem, 1vw, 1rem);
+}
+
+/* Interactive 3D ViewCube (Scales fluidly with screen size) */
+.viewcube-wrapper {
+  position: relative;
+  width: clamp(96px, 7.5vw, 136px);
+  height: clamp(96px, 7.5vw, 136px);
+  background: rgba(17, 23, 38, 0.82);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-subtle);
+  border-radius: clamp(8px, 0.7vw, 14px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  user-select: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  flex-shrink: 0;
+}
+
+.viewcube-wrapper:hover {
+  border-color: rgba(56, 189, 248, 0.5);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+}
+
+#viewcube-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: grab;
+}
+
+.viewcube-home-btn {
+  position: absolute;
+  top: clamp(4px, 0.4vw, 8px);
+  left: clamp(4px, 0.4vw, 8px);
+  width: clamp(22px, 1.8vw, 30px);
+  height: clamp(22px, 1.8vw, 30px);
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: clamp(4px, 0.35vw, 6px);
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: all 0.15s ease;
+  z-index: 5;
+}
+
+.viewcube-home-btn .material-symbols-outlined {
+  font-size: clamp(14px, 1.1vw, 18px);
+}
+
+.viewcube-home-btn:hover {
+  background: var(--accent-blue);
+  color: #fff;
+  border-color: var(--accent-blue);
+  transform: scale(1.08);
 }
 
 .toolbar-group {
   display: flex;
   align-items: center;
-  gap: 0.375rem;
+  gap: clamp(0.35rem, 0.45vw, 0.65rem);
   background: rgba(17, 23, 38, 0.85);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(12px);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  padding: 0.25rem;
+  border-radius: clamp(8px, 0.7vw, 14px);
+  padding: clamp(0.25rem, 0.35vw, 0.45rem);
   pointer-events: auto;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
 }
 
 .toolbar-btn {
@@ -732,16 +1176,20 @@ details.advanced-panel[open] summary .material-symbols-outlined {
   border: none;
   color: var(--text-muted);
   font-family: var(--font-sans);
-  font-size: 0.75rem;
+  font-size: clamp(0.75rem, 0.85vw, 0.95rem);
   font-weight: 500;
-  padding: 0.35rem 0.65rem;
-  border-radius: var(--radius-sm);
+  padding: clamp(0.35rem, 0.45vw, 0.55rem) clamp(0.5rem, 0.65vw, 0.85rem);
+  border-radius: clamp(4px, 0.35vw, 7px);
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: clamp(0.25rem, 0.35vw, 0.45rem);
   transition: all 0.15s ease;
   user-select: none;
+}
+
+.toolbar-btn .material-symbols-outlined {
+  font-size: clamp(16px, 1.2vw, 22px);
 }
 
 .toolbar-btn:hover {
@@ -755,44 +1203,69 @@ details.advanced-panel[open] summary .material-symbols-outlined {
 }
 
 .color-swatch-btn {
-  width: 22px;
-  height: 22px;
+  width: clamp(20px, 1.6vw, 26px);
+  height: clamp(20px, 1.6vw, 26px);
   border-radius: 50% !important;
-  border: 2px solid transparent;
+  border: 2px solid rgba(255, 255, 255, 0.25);
   cursor: pointer;
   padding: 0;
   overflow: hidden;
   flex-shrink: 0;
-  transition: transform 0.15s, border-color 0.15s;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .color-swatch-btn:hover {
   transform: scale(1.15);
+  border-color: rgba(255, 255, 255, 0.6);
 }
 
 .color-swatch-btn.active {
-  border-color: #fff;
+  border-color: #ffffff;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
   transform: scale(1.15);
 }
 
-/* HUD Stats Badge */
+.swatch-preview {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+
+.swatch-normals {
+  background: conic-gradient(#ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
+}
+
+.swatch-green {
+  background: linear-gradient(135deg, #22c55e, #15803d);
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: clamp(16px, 1.4vw, 24px);
+  background: var(--border-subtle);
+  margin: 0 clamp(1px, 0.2vw, 4px);
+  flex-shrink: 0;
+}
+
+/* HUD Stats Badge (Scales fluidly) */
 .hud-badge {
   position: absolute;
-  bottom: 1rem;
-  left: 1rem;
+  bottom: clamp(0.75rem, 1.2vw, 1.5rem);
+  left: clamp(0.75rem, 1.2vw, 1.5rem);
   background: rgba(17, 23, 38, 0.85);
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(10px);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  padding: 0.5rem 0.875rem;
+  border-radius: clamp(8px, 0.7vw, 14px);
+  padding: clamp(0.5rem, 0.65vw, 0.85rem) clamp(0.75rem, 0.9vw, 1.25rem);
   font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: clamp(0.75rem, 0.8vw, 0.95rem);
   color: var(--text-muted);
   display: none;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: clamp(0.2rem, 0.3vw, 0.4rem);
   pointer-events: none;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
   z-index: 10;
 }
 
@@ -803,7 +1276,7 @@ details.advanced-panel[open] summary .material-symbols-outlined {
 .hud-row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: clamp(0.4rem, 0.5vw, 0.75rem);
 }
 
 .hud-val {
@@ -811,24 +1284,29 @@ details.advanced-panel[open] summary .material-symbols-outlined {
   font-weight: 600;
 }
 
-/* Navigation Hints */
+/* Navigation Hints (Scales fluidly) */
 .nav-hints {
   position: absolute;
-  bottom: 1rem;
-  right: 1rem;
+  bottom: clamp(0.75rem, 1.2vw, 1.5rem);
+  right: clamp(0.75rem, 1.2vw, 1.5rem);
   background: rgba(17, 23, 38, 0.75);
-  backdrop-filter: blur(6px);
+  backdrop-filter: blur(8px);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  padding: 0.35rem 0.65rem;
-  font-size: 0.6875rem;
+  border-radius: clamp(6px, 0.6vw, 10px);
+  padding: clamp(0.35rem, 0.45vw, 0.6rem) clamp(0.65rem, 0.8vw, 1rem);
+  font-size: clamp(0.6875rem, 0.75vw, 0.875rem);
   color: var(--text-faint);
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: clamp(0.5rem, 0.8vw, 1.2rem);
   pointer-events: none;
   user-select: none;
   z-index: 10;
+}
+
+.nav-hints kbd {
+  font-size: clamp(0.625rem, 0.7vw, 0.8125rem);
+  padding: clamp(1px, 0.15vw, 2px) clamp(4px, 0.35vw, 6px);
 }
 
 /* Viewport Empty State */
@@ -1003,14 +1481,14 @@ dialog.modal::backdrop {
 
 /* Unit toggle pill in toolbar */
 .btn-unit-toggle {
-  font-size: 0.6875rem;
+  font-size: clamp(0.6875rem, 0.75vw, 0.875rem);
   font-weight: 700;
   font-family: var(--font-mono);
   letter-spacing: 0.06em;
-  padding: 0.3rem 0.55rem;
+  padding: clamp(0.25rem, 0.35vw, 0.45rem) clamp(0.5rem, 0.65vw, 0.85rem);
   background: rgba(96, 165, 250, 0.1);
   border: 1px solid rgba(96, 165, 250, 0.3);
-  border-radius: var(--radius-sm);
+  border-radius: clamp(4px, 0.35vw, 6px);
   color: #93c5fd;
   cursor: pointer;
   transition: all 0.2s ease;

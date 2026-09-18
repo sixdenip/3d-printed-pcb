@@ -18,26 +18,29 @@ def _trace_module(
 ) -> str:
     points = trace.points + ((trace.points[0],) if trace.closed else ())
     lines = [
-        f"  // trace with {len(points)} points",
-        "  union() {",
+        f"    // trace trench with {len(points)} points",
+        # Extrude starting at (base_thickness - height) and overshoot top by 0.1mm
+        # to ensure clean manifold boolean subtraction without coplanar face artifacts
+        f"    translate([0, 0, {(base_thickness - height):.5f}])",
+        f"      linear_extrude(height={(height + 0.1):.5f})",
+        "      union() {",
     ]
     for first, second in zip(points, points[1:]):
         lines.extend([
-            "    translate([0, 0, %.5f])" % base_thickness,
-            "      linear_extrude(height=%.5f)" % height,
-            "      hull() {",
-            f"        translate({_point(first)}) circle(d={width:.5f}, $fn=24);",
-            f"        translate({_point(second)}) circle(d={width:.5f}, $fn=24);",
-            "      }",
+            "        hull() {",
+            f"          translate({_point(first)}) circle(d={width:.5f}, $fn=24);",
+            f"          translate({_point(second)}) circle(d={width:.5f}, $fn=24);",
+            "        }",
         ])
-    lines.append("  }")
+    lines.append("      }")
     return "\n".join(lines)
 
 
 def generate_openscad(geometry: BoardGeometry, parameters: GenerationParameters) -> str:
     """Return a self-contained OpenSCAD program in millimetres."""
     parameters.validate()
-    board = geometry.translated_to_origin()
+    # Connect trace trench endpoints directly to through-hole centers
+    board = geometry.connect_traces_to_holes(parameters.snap_tolerance).translated_to_origin()
     width, depth = board.size
     if width <= 0 or depth <= 0:
         raise ValueError("Outline must span a positive width and height")
@@ -52,18 +55,16 @@ def generate_openscad(geometry: BoardGeometry, parameters: GenerationParameters)
         f"trace_height = {parameters.trace_height:.5f};",
         f"trace_width = {parameters.trace_width:.5f};",
         "",
-        "union() {",
-        "  difference() {",
-        f"    cube([{width:.5f}, {depth:.5f}, base_thickness]);",
-        "    union() {",
+        "difference() {",
+        f"  cube([{width:.5f}, {depth:.5f}, base_thickness]);",
+        "  union() {",
     ]
     for hole in board.holes:
         center = shift(hole.center)
         source.extend([
-            f"      translate([{center.x:.5f}, {center.y:.5f}, -0.1]) "
+            f"    translate([{center.x:.5f}, {center.y:.5f}, -0.1]) "
             f"cylinder(h=base_thickness + 0.2, r={hole.radius:.5f}, $fn=48);",
         ])
-    source.extend(["    }", "  }"])
     for trace in board.traces:
         shifted = Polyline(tuple(shift(point) for point in trace.points), trace.closed)
         source.append(_trace_module(
@@ -72,8 +73,9 @@ def generate_openscad(geometry: BoardGeometry, parameters: GenerationParameters)
             parameters.trace_height,
             parameters.base_thickness,
         ))
-    source.extend(["}", ""])
+    source.extend(["  }", "}", ""])
     return "\n".join(source)
+
 
 
 def run_openscad(

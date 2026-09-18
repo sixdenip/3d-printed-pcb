@@ -56,14 +56,14 @@ def generate_dip8_sample_dxf(*, m4_holes: bool = True) -> str:
         msp.add_circle((px, oy + 7.0), radius=0.5, dxfattribs={"layer": "Drill"})
         msp.add_circle((px, oy + 14.62), radius=0.5, dxfattribs={"layer": "Drill"})
 
-    # Circuit traces: routed with >=0.85mm clearance from hole centers so traces never cover holes
-    msp.add_lwpolyline([(ox + 5.85, oy + 8.5), (ox + 8.0, oy + 8.5), (ox + 9.5, oy + 7.0), (ox + 11.15, oy + 7.0)], dxfattribs={"layer": "F.Cu"})
-    msp.add_lwpolyline([(ox + 5.85, oy + 13.5), (ox + 8.0, oy + 13.5), (ox + 9.5, oy + 14.62), (ox + 11.15, oy + 14.62)], dxfattribs={"layer": "F.Cu"})
-    msp.add_lwpolyline([(ox + 20.47, oy + 7.0), (ox + 22.5, oy + 7.0), (ox + 24.0, oy + 8.5), (ox + 26.15, oy + 8.5)], dxfattribs={"layer": "F.Cu"})
-    msp.add_lwpolyline([(ox + 20.47, oy + 14.62), (ox + 22.5, oy + 14.62), (ox + 24.0, oy + 13.5), (ox + 26.15, oy + 13.5)], dxfattribs={"layer": "F.Cu"})
-    msp.add_lwpolyline([(ox + 14.54, oy + 6.15), (ox + 14.54, oy + 3.5), (ox + 17.08, oy + 3.5), (ox + 17.08, oy + 6.15)], dxfattribs={"layer": "F.Cu"})
-    msp.add_lwpolyline([(ox + 14.54, oy + 15.47), (ox + 14.54, oy + 18.2), (ox + 17.08, oy + 18.2), (ox + 17.08, oy + 15.47)], dxfattribs={"layer": "F.Cu"})
-    msp.add_lwpolyline([(ox + 15.39, oy + 7.0), (ox + 15.81, oy + 7.5), (ox + 15.81, oy + 14.12), (ox + 15.39, oy + 14.62)], dxfattribs={"layer": "F.Cu"})
+    # Circuit traces: routed directly to hole centers so the trenches seamlessly connect into the holes
+    msp.add_lwpolyline([(ox + 5.0, oy + 8.5), (ox + 8.0, oy + 8.5), (ox + 9.5, oy + 7.0), (ox + 12.0, oy + 7.0)], dxfattribs={"layer": "F.Cu"})
+    msp.add_lwpolyline([(ox + 5.0, oy + 13.5), (ox + 8.0, oy + 13.5), (ox + 9.5, oy + 14.62), (ox + 12.0, oy + 14.62)], dxfattribs={"layer": "F.Cu"})
+    msp.add_lwpolyline([(ox + 19.62, oy + 7.0), (ox + 22.5, oy + 7.0), (ox + 24.0, oy + 8.5), (ox + 27.0, oy + 8.5)], dxfattribs={"layer": "F.Cu"})
+    msp.add_lwpolyline([(ox + 19.62, oy + 14.62), (ox + 22.5, oy + 14.62), (ox + 24.0, oy + 13.5), (ox + 27.0, oy + 13.5)], dxfattribs={"layer": "F.Cu"})
+    msp.add_lwpolyline([(ox + 14.54, oy + 7.0), (ox + 14.54, oy + 3.5), (ox + 17.08, oy + 3.5), (ox + 17.08, oy + 7.0)], dxfattribs={"layer": "F.Cu"})
+    msp.add_lwpolyline([(ox + 14.54, oy + 14.62), (ox + 14.54, oy + 18.2), (ox + 17.08, oy + 18.2), (ox + 17.08, oy + 14.62)], dxfattribs={"layer": "F.Cu"})
+    msp.add_lwpolyline([(ox + 14.54, oy + 7.0), (ox + 15.81, oy + 7.5), (ox + 15.81, oy + 14.12), (ox + 14.54, oy + 14.62)], dxfattribs={"layer": "F.Cu"})
 
     stream = io.StringIO()
     doc.write(stream)
