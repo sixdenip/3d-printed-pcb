@@ -70,17 +70,62 @@ def generate_dip8_sample_dxf(*, m4_holes: bool = True) -> str:
     return stream.getvalue()
 
 
+def generate_dip8_shield_sample_dxf(*, m4_holes: bool = True) -> str:
+    """Generate DXF content for a mating upper layer (Power / LED Shield) with matching vias."""
+    doc = ezdxf.new("R2010")
+    msp = doc.modelspace()
+
+    if m4_holes:
+        width, height = 44.0, 28.0
+        ox, oy = 6.0, 3.0
+        for x, y in [(4.5, 4.5), (39.5, 4.5), (39.5, 23.5), (4.5, 23.5)]:
+            msp.add_circle((x, y), radius=2.2, dxfattribs={"layer": "NPTH"})
+    else:
+        width, height = 32.0, 22.0
+        ox, oy = 0.0, 0.0
+
+    msp.add_lwpolyline(
+        [(0, 0), (width, 0), (width, height), (0, height)],
+        close=True,
+        dxfattribs={"layer": "Edge.Cuts"},
+    )
+
+    # Identically aligned connector pads & vias matching the base layer
+    # Left & right connector pads
+    for x, y in [(ox + 5.0, oy + 8.5), (ox + 5.0, oy + 13.5), (ox + 27.0, oy + 8.5), (ox + 27.0, oy + 13.5)]:
+        msp.add_circle((x, y), radius=0.5, dxfattribs={"layer": "Drill"})
+    # Center power rail vias aligned with DIP-8 pin 4 and pin 8
+    msp.add_circle((ox + 19.62, oy + 7.0), radius=0.5, dxfattribs={"layer": "Drill"})
+    msp.add_circle((ox + 12.0, oy + 14.62), radius=0.5, dxfattribs={"layer": "Drill"})
+
+    # Shield traces connecting power and signal buses
+    msp.add_lwpolyline([(ox + 5.0, oy + 8.5), (ox + 10.0, oy + 8.5), (ox + 12.0, oy + 10.5), (ox + 27.0, oy + 10.5), (ox + 27.0, oy + 8.5)], dxfattribs={"layer": "F.Cu"})
+    msp.add_lwpolyline([(ox + 5.0, oy + 13.5), (ox + 8.0, oy + 13.5), (ox + 10.0, oy + 14.62), (ox + 12.0, oy + 14.62)], dxfattribs={"layer": "F.Cu"})
+    msp.add_lwpolyline([(ox + 19.62, oy + 7.0), (ox + 22.0, oy + 7.0), (ox + 25.0, oy + 10.0), (ox + 27.0, oy + 13.5)], dxfattribs={"layer": "F.Cu"})
+
+    stream = io.StringIO()
+    doc.write(stream)
+    return stream.getvalue()
+
+
 # Indexed catalog of sample boards
 SAMPLES: list[SampleBoard] = [
     SampleBoard(
         id="sample_pcb",
-        name="Sample Circuit Board (DIP-8)",
+        name="Sample Circuit Board (DIP-8 Base)",
         description="Dual connector pads with DIP-8 IC and routed front copper traces",
         generator=generate_dip8_sample_dxf,
+    ),
+    SampleBoard(
+        id="sample_shield",
+        name="Sample Shield Board (Layer 2 Top)",
+        description="Power bus and indicator traces with perfectly aligned mating vias",
+        generator=generate_dip8_shield_sample_dxf,
     ),
 ]
 
 SAMPLES_BY_ID: dict[str, SampleBoard] = {sample.id: sample for sample in SAMPLES}
+
 
 
 def get_samples_catalog() -> list[dict[str, str]]:

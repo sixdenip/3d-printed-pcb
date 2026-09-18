@@ -267,5 +267,67 @@ def test_cli_generate_with_svg_input(tmp_path: Path):
     assert output_stl.stat().st_size > 0
 
 
+def test_stacking_pegs_and_sockets_openscad():
+    geom = BoardGeometry(
+        Polyline((Point(0, 0), Point(40, 0), Point(40, 30), Point(0, 30)), True),
+        (Polyline((Point(10, 15), Point(30, 15))),),
+        (Hole(Point(20, 15), 1.0),),
+    )
+    # Bottom layer: has pegs, no sockets
+    bottom_params = GenerationParameters(stacking_pins=True, layer_role="bottom")
+    source_bottom = generate_openscad(geom, bottom_params)
+    assert "Corner Stacking Pegs" in source_bottom
+    assert "Corner Stacking Sockets" not in source_bottom
+
+    # Middle layer: has both pegs and sockets
+    mid_params = GenerationParameters(stacking_pins=True, layer_role="middle")
+    source_mid = generate_openscad(geom, mid_params)
+    assert "Corner Stacking Pegs" in source_mid
+    assert "Corner Stacking Sockets" in source_mid
+
+    # Top layer: has sockets, no pegs
+    top_params = GenerationParameters(stacking_pins=True, layer_role="top")
+    source_top = generate_openscad(geom, top_params)
+    assert "Corner Stacking Pegs" not in source_top
+    assert "Corner Stacking Sockets" in source_top
+
+
+def test_multilayer_pipeline_via_alignment(tmp_path: Path):
+    from pcb3d.pipeline import generate_multilayer_stack
+    from pcb3d.samples import generate_dip8_sample_dxf, generate_dip8_shield_sample_dxf
+    from pcb3d.config import LayerMapping
+    import shutil
+
+    if not shutil.which("openscad"):
+        pytest.skip("OpenSCAD executable not available on PATH")
+
+    dxf1 = tmp_path / "layer1_base.dxf"
+    dxf1.write_text(generate_dip8_sample_dxf(m4_holes=True), encoding="utf-8")
+    dxf2 = tmp_path / "layer2_shield.dxf"
+    dxf2.write_text(generate_dip8_shield_sample_dxf(m4_holes=True), encoding="utf-8")
+
+    layers = [
+        {"path": dxf1, "name": "Base Board", "role": "bottom"},
+        {"path": dxf2, "name": "Shield Board", "role": "top"},
+    ]
+    mapping = LayerMapping()
+    base_params = GenerationParameters(stacking_pins=True)
+
+    results = generate_multilayer_stack(layers, tmp_path / "out", mapping, base_params)
+    assert len(results) == 2
+    assert results[0]["role"] == "bottom"
+    assert results[1]["role"] == "top"
+    assert results[0]["stl_path"].is_file()
+    assert results[1]["stl_path"].is_file()
+
+    # Verify matching connector holes have exactly identical (x, y) coordinates
+    holes_l1 = {(round(h.center.x, 3), round(h.center.y, 3)) for h in results[0]["geometry"].holes}
+    holes_l2 = {(round(h.center.x, 3), round(h.center.y, 3)) for h in results[1]["geometry"].holes}
+    # Through-holes that exist in both must intersect perfectly
+    common_holes = holes_l1.intersection(holes_l2)
+    assert len(common_holes) >= 4  # All connector pad holes perfectly collocated
+
+
+
 
 

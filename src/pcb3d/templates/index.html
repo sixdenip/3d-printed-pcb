@@ -44,8 +44,20 @@
     <!-- Left Configuration Sidebar -->
     <aside class="sidebar">
       <form id="generate-form" enctype="multipart/form-data">
-        <!-- DXF Upload Card -->
-        <div class="card">
+        <!-- Board Mode Selector: Single Layer vs Multi-Layer Stack -->
+        <div class="board-mode-tabs">
+          <button type="button" class="mode-tab-btn active" id="tab-mode-single" data-mode="single">
+            <span class="material-symbols-outlined" style="font-size: 16px;">layers</span>
+            Single Layer
+          </button>
+          <button type="button" class="mode-tab-btn" id="tab-mode-stack" data-mode="stack">
+            <span class="material-symbols-outlined" style="font-size: 16px;">view_stream</span>
+            Multi-Layer Stack
+          </button>
+        </div>
+
+        <!-- Single Layer Card -->
+        <div class="card" id="single-layer-card">
           <div class="card-title">
             <span class="material-symbols-outlined">description</span>
             Board DXF / SVG File
@@ -57,7 +69,7 @@
             </div>
             <div class="dropzone-text">Drop your DXF or SVG file here</div>
             <div class="dropzone-hint">Supports KiCad DXF (.dxf) and SVG (.svg) exports</div>
-            <input type="file" id="dxf-file-input" name="dxf" accept=".dxf,.svg" required>
+            <input type="file" id="dxf-file-input" name="dxf" accept=".dxf,.svg">
           </div>
 
           <div class="file-badge" id="file-badge">
@@ -83,7 +95,8 @@
             <div class="sample-control-row">
               <div class="sample-select-wrapper">
                 <select id="sample-select" class="sample-select" aria-label="Select sample circuit board">
-                  <option value="sample_pcb">Sample Circuit Board (DIP-8)</option>
+                  <option value="sample_pcb">Sample Circuit Board (DIP-8 Base)</option>
+                  <option value="sample_shield">Sample Shield Board (Layer 2 Top)</option>
                 </select>
                 <span class="material-symbols-outlined select-chevron">arrow_drop_down</span>
               </div>
@@ -93,6 +106,31 @@
               </button>
             </div>
           </div>
+        </div>
+
+        <!-- Multi-Layer Stack Manager Card -->
+        <div class="card" id="stack-manager-card" style="display: none;">
+          <div class="card-title">
+            <span class="material-symbols-outlined">view_stream</span>
+            Layer Hierarchy & Stacking Order
+          </div>
+          <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: -0.5rem;">
+            Order layers from bottom (base) to top. Use Move Up/Down to rearrange.
+          </p>
+
+          <div class="layer-stack-list" id="layer-stack-list">
+            <!-- Dynamically populated layer slot items -->
+          </div>
+
+          <button type="button" class="btn-add-layer-slot" id="btn-add-layer-slot">
+            <span class="material-symbols-outlined" style="font-size: 16px;">add</span>
+            Add Another Layer Slot
+          </button>
+
+          <button type="button" class="btn-load-sample" id="btn-load-sample-stack" style="width: 100%; margin-top: 0.25rem;">
+            <span class="material-symbols-outlined">bolt</span>
+            Load 2-Layer Preset Stack (Base + Shield)
+          </button>
         </div>
 
         <!-- Print Parameters Card -->
@@ -144,12 +182,46 @@
             </div>
           </div>
 
-          <div class="checkbox-group">
+          <div class="checkbox-group" id="m4-holes-group">
             <label class="checkbox-label" for="toggle-m4-holes">
               <input type="checkbox" id="toggle-m4-holes" name="include_m4" value="1" checked>
               <span>Include corner M4 mounting holes (&Oslash;4.4mm)</span>
             </label>
           </div>
+
+          <!-- Stacking Alignment Pegs & Sockets -->
+          <div class="stacking-params-panel">
+            <div class="checkbox-group">
+              <label class="checkbox-label" for="toggle-stacking-pins">
+                <input type="checkbox" id="toggle-stacking-pins" name="stacking_pins" value="1" checked>
+                <span><strong>Stacking Pegs & Sockets</strong> (Corner Alignment)</span>
+              </label>
+            </div>
+            <div class="param-grid" id="stacking-dims-grid" style="grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; margin-top: 0.25rem;">
+              <div class="input-group">
+                <label class="input-label" for="stacking_pin_diameter" style="font-size: 0.6875rem;">Pin &Oslash;</label>
+                <div class="input-wrapper">
+                  <input class="input-control" type="number" id="stacking_pin_diameter" name="stacking_pin_diameter" step="0.1" min="1.0" value="3.0">
+                  <span class="unit-badge" style="font-size: 0.625rem;">mm</span>
+                </div>
+              </div>
+              <div class="input-group">
+                <label class="input-label" for="stacking_pin_height" style="font-size: 0.6875rem;">Pin Height</label>
+                <div class="input-wrapper">
+                  <input class="input-control" type="number" id="stacking_pin_height" name="stacking_pin_height" step="0.1" min="0.5" value="1.2">
+                  <span class="unit-badge" style="font-size: 0.625rem;">mm</span>
+                </div>
+              </div>
+              <div class="input-group">
+                <label class="input-label" for="stacking_clearance" style="font-size: 0.6875rem;">Clearance</label>
+                <div class="input-wrapper">
+                  <input class="input-control" type="number" id="stacking_clearance" name="stacking_clearance" step="0.05" min="0.0" value="0.15">
+                  <span class="unit-badge" style="font-size: 0.625rem;">mm</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
 
           <!-- Advanced Collapsible Settings -->
           <details class="advanced-panel">
@@ -188,12 +260,12 @@
           <p style="font-size: 0.8125rem; color: #a7f3d0;">The 3D model was compiled with OpenSCAD. You can download the sliced STL or the OpenSCAD source script.</p>
           <div class="download-actions-group">
             <a class="btn-download" id="download-stl-link" href="#" download>
-              <span class="material-symbols-outlined">download</span>
-              Download .STL File
+              <span class="material-symbols-outlined" id="download-stl-icon">download</span>
+              <span id="download-stl-text">Download .STL File</span>
             </a>
             <a class="btn-download btn-download-scad" id="download-scad-link" href="#" download>
-              <span class="material-symbols-outlined">code</span>
-              Download .SCAD File
+              <span class="material-symbols-outlined" id="download-scad-icon">code</span>
+              <span id="download-scad-text">Download .SCAD File</span>
             </a>
           </div>
         </div>
@@ -217,6 +289,9 @@
             <span class="dxf-title-text">2D Circuit Layout</span>
             <span class="dxf-file-badge" id="dxf-file-badge">No DXF loaded</span>
           </div>
+
+          <!-- Multi-Layer 2D Level Selector -->
+          <div class="dxf-layer-nav" id="dxf-layer-nav" style="display: none;"></div>
 
           <!-- Layer Visibility Toggles -->
           <div class="dxf-layer-group">
@@ -334,7 +409,25 @@
 
             <button type="button" class="btn-unit-toggle" id="btn-unit-toggle" title="Switch between metric and imperial units">mm</button>
           </div>
+
+          <!-- Exploded View Toggle & Spacing Slider -->
+          <div class="explode-controls-wrap" id="explode-controls-wrap" style="display: none;" title="Exploded View: separate stacked layers vertically">
+            <button type="button" class="btn-explode-toggle" id="btn-explode-toggle" title="Toggle Exploded View">
+              <span class="material-symbols-outlined">layers</span>
+            </button>
+            <input type="range" class="explode-slider" id="explode-slider" min="0" max="30" step="1" value="0" title="Layer separation distance (mm)">
+          </div>
         </div>
+
+        <!-- Vertical Discrete Stack Level Ruler (Multi-Layer Mode) -->
+        <div class="stack-ruler-widget" id="stack-ruler-widget" style="display: none;">
+          <div class="stack-ruler-header" title="Multi-Layer Stack Level">
+            <span class="material-symbols-outlined stack-ruler-icon">height</span>
+            <span class="stack-ruler-title">LEVEL</span>
+          </div>
+          <div class="stack-ruler-track" id="stack-ruler-track"></div>
+        </div>
+
 
         <!-- HUD Stats Dimensions Badge -->
         <div class="hud-badge" id="hud-badge">
@@ -462,6 +555,7 @@
     let isWireframe = false;
     let isGridVisible = true;
     let currentTheme = 'normals';
+    let currentSubstrateColor = 'normals';
     let useImperial = false;         // false = mm, true = inches
 
     // Interactive 3D ViewCube State
@@ -490,19 +584,35 @@
       clearcoat: 0.40,       // Clearcoat sheen
       clearcoatRoughness: 0.08
     });
-    let currentSubstrateColor = 'normals';
+    // Multi-Layer Stacking State
+    let currentMode = 'single';      // 'single' or 'stack'
+    let layerSlots = [];             // [{ id, name, file, role, stl_url, scad_url, mesh, geometry, edges }]
+    let stackGroup = null;           // THREE.Group containing all stacked layer meshes
+    let activeLayerFilter = 'all';   // 'all' or numeric layer index
+    let explodeDistance = 0;         // Vertical gap (mm) between layers in exploded view
+    let isExploded = false;
+    let currentStackLayers = [];     // Stored multi-layer compilation results
+    let currentStackJob = null;      // Stored multi-layer job identifier
+    let activeDxfLayerIdx = 'all';   // Currently displayed 2D layer index or 'all'
 
     function setSubstrateColor(colorName) {
       currentSubstrateColor = colorName;
       document.querySelectorAll('.color-swatch-btn').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.color === colorName);
       });
-      if (currentMesh && Array.isArray(currentMesh.material)) {
-        currentMesh.material[0] = colorName === 'green' ? greenMaterial : normalMaterial;
-        currentMesh.material.needsUpdate = true;
-        updateWireframeDisplay();
-      }
+      const applyColor = (mesh) => {
+        if (mesh && Array.isArray(mesh.material)) {
+          mesh.material[0] = colorName === 'green' ? greenMaterial : normalMaterial;
+          mesh.material.needsUpdate = true;
+        }
+      };
+      applyColor(currentMesh);
+      layerSlots.forEach(slot => {
+        if (slot.mesh) applyColor(slot.mesh);
+      });
+      updateWireframeDisplay();
     }
+
 
     function initThree() {
       const container = document.getElementById('viewer');
@@ -846,6 +956,312 @@
     }
 
     /**
+     * Render all multi-layer PCB layers simultaneously in the 2D Circuit Layout visualizer,
+     * color-coding traces per layer with tooltips and composite HUD stats.
+     */
+    function renderDxf2DAll(layersData) {
+      if (!layersData || layersData.length === 0) return;
+      const validLayers = layersData.filter(l => l && l.dxf && l.dxf.bounds);
+      if (validLayers.length === 0) return;
+
+      currentDxfData = {
+        bounds: [
+          Math.min(...validLayers.map(l => l.dxf.bounds[0])),
+          Math.min(...validLayers.map(l => l.dxf.bounds[1])),
+          Math.max(...validLayers.map(l => l.dxf.bounds[2])),
+          Math.max(...validLayers.map(l => l.dxf.bounds[3]))
+        ],
+        size: [
+          Math.max(...validLayers.map(l => l.dxf.size[0])),
+          Math.max(...validLayers.map(l => l.dxf.size[1]))
+        ]
+      };
+
+      if (dxfFileBadge) {
+        dxfFileBadge.textContent = `All Layers (${validLayers.length} Layers Combined)`;
+      }
+      if (dxfEmptyOverlay) dxfEmptyOverlay.classList.add('hidden');
+
+      const [minX, minY, maxX, maxY] = currentDxfData.bounds;
+      const width = currentDxfData.size[0];
+      const height = currentDxfData.size[1];
+      const pad = Math.max(2.0, Math.max(width, height) * 0.08);
+
+      baseDxfViewBox = {
+        x: minX - pad,
+        y: minY - pad,
+        w: width + 2 * pad,
+        h: height + 2 * pad
+      };
+      dxfViewBox = { ...baseDxfViewBox };
+      updateDxfViewBox();
+
+      const toSvgY = (y) => maxY + minY - y;
+
+      // Clear layers
+      dxfOutlineLayer.innerHTML = '';
+      dxfTracesLayer.innerHTML = '';
+      dxfHolesLayer.innerHTML = '';
+
+      // 1. Render Outlines (from bottom/first layer)
+      if (validLayers[0].dxf.outlines && validLayers[0].dxf.outlines.length > 0) {
+        validLayers[0].dxf.outlines.forEach(outline => {
+          const pts = outline.points.map(p => `${p[0]},${toSvgY(p[1])}`).join(' ');
+          const el = document.createElementNS('http://www.w3.org/2000/svg', outline.closed ? 'polygon' : 'polyline');
+          el.setAttribute('points', pts);
+          el.setAttribute('class', 'dxf-outline-shape');
+          dxfOutlineLayer.appendChild(el);
+        });
+      }
+
+      // 2. High-contrast color palette for distinguishing stacked layers
+      const layerColors = [
+        '#38bdf8', // L1: Electric Cyan
+        '#f59e0b', // L2: Warm Amber
+        '#34d399', // L3: Emerald
+        '#f472b6', // L4: Rose
+        '#a78bfa', // L5: Purple
+        '#fb923c', // L6: Tangerine
+      ];
+
+      let totalTraces = 0;
+
+      // 3. Render traces for each layer
+      validLayers.forEach((layer, idx) => {
+        const color = layerColors[idx % layerColors.length];
+        const traceWidth = (layer.dxf.stats && layer.dxf.stats.trace_width) || 0.4;
+        if (layer.dxf.traces && layer.dxf.traces.length > 0) {
+          totalTraces += layer.dxf.traces.length;
+          layer.dxf.traces.forEach((trace, tIdx) => {
+            const pts = trace.points.map(p => `${p[0]},${toSvgY(p[1])}`).join(' ');
+            const el = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+            el.setAttribute('points', pts);
+            el.setAttribute('stroke', color);
+            el.setAttribute('stroke-width', Math.max(traceWidth, 0.4));
+            el.setAttribute('stroke-linecap', 'round');
+            el.setAttribute('stroke-linejoin', 'round');
+            el.setAttribute('stroke-opacity', '0.85');
+            el.setAttribute('fill', 'none');
+            el.setAttribute('class', 'dxf-trace-path');
+
+            el.addEventListener('mouseenter', (e) => {
+              dxfTooltip.innerHTML = `<strong>L${idx + 1} (${layer.role || 'Layer'}):</strong> ${layer.name} Trace #${tIdx + 1}<br><span style="color: ${color};">● Layer ${idx + 1}</span>`;
+              dxfTooltip.style.display = 'block';
+              positionDxfTooltip(e);
+            });
+            el.addEventListener('mousemove', positionDxfTooltip);
+            el.addEventListener('mouseleave', () => {
+              dxfTooltip.style.display = 'none';
+            });
+
+            dxfTracesLayer.appendChild(el);
+          });
+        }
+      });
+
+      // 4. Render through-holes (grouping identical coordinates across layers)
+      const holeMap = new Map();
+      validLayers.forEach((layer, idx) => {
+        if (layer.dxf.holes) {
+          layer.dxf.holes.forEach(h => {
+            const key = `${h.x.toFixed(2)}_${h.y.toFixed(2)}`;
+            if (!holeMap.has(key)) {
+              holeMap.set(key, { hole: h, layers: [idx + 1] });
+            } else {
+              holeMap.get(key).layers.push(idx + 1);
+            }
+          });
+        }
+      });
+
+      holeMap.forEach(({ hole, layers }) => {
+        const sy = toSvgY(hole.y);
+        const isM4 = hole.radius >= 2.0;
+        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        g.setAttribute('class', `dxf-hole-group ${isM4 ? 'dxf-hole-m4' : ''}`);
+
+        const padCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        padCircle.setAttribute('cx', hole.x);
+        padCircle.setAttribute('cy', sy);
+        padCircle.setAttribute('r', hole.radius + (isM4 ? 0.7 : 0.45));
+        padCircle.setAttribute('class', 'dxf-hole-pad');
+        g.appendChild(padCircle);
+
+        const drillCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        drillCircle.setAttribute('cx', hole.x);
+        drillCircle.setAttribute('cy', sy);
+        drillCircle.setAttribute('r', hole.radius);
+        drillCircle.setAttribute('class', 'dxf-hole-drill');
+        g.appendChild(drillCircle);
+
+        const chL = isM4 ? 0.8 : 0.4;
+        const lineH = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        lineH.setAttribute('x1', hole.x - chL);
+        lineH.setAttribute('y1', sy);
+        lineH.setAttribute('x2', hole.x + chL);
+        lineH.setAttribute('y2', sy);
+        lineH.setAttribute('stroke', 'rgba(255, 255, 255, 0.45)');
+        lineH.setAttribute('stroke-width', '0.1');
+        g.appendChild(lineH);
+
+        const lineV = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        lineV.setAttribute('x1', hole.x);
+        lineV.setAttribute('y1', sy - chL);
+        lineV.setAttribute('x2', hole.x);
+        lineV.setAttribute('y2', sy + chL);
+        lineV.setAttribute('stroke', 'rgba(255, 255, 255, 0.45)');
+        lineV.setAttribute('stroke-width', '0.1');
+        g.appendChild(lineV);
+
+        g.addEventListener('mouseenter', (e) => {
+          const diamStr = formatDim(hole.diameter);
+          const xStr = formatDim(hole.x);
+          const yStr = formatDim(hole.y);
+          const layerStr = layers.length === validLayers.length
+            ? 'All Layers (Aligned Via)'
+            : `Layers: L${layers.join(', L')}`;
+          dxfTooltip.innerHTML = `<strong>${isM4 ? 'Mounting Hole' : 'Through-Hole Via'}:</strong> Ø${diamStr} at (${xStr}, ${yStr})<br><span style="color: #60a5fa;">${layerStr}</span>`;
+          dxfTooltip.style.display = 'block';
+          positionDxfTooltip(e);
+        });
+        g.addEventListener('mousemove', positionDxfTooltip);
+        g.addEventListener('mouseleave', () => {
+          dxfTooltip.style.display = 'none';
+        });
+
+        dxfHolesLayer.appendChild(g);
+      });
+
+      // 5. Update HUD stats
+      if (dxfHudDim) {
+        dxfHudDim.textContent = `${formatDim(width)} × ${formatDim(height)}`;
+      }
+      if (dxfHudCounts) {
+        dxfHudCounts.textContent = `${totalTraces} traces (${validLayers.length} layers), ${holeMap.size} holes`;
+      }
+    }
+
+    /**
+     * Update download card buttons between individual layer downloads and full-stack ZIP archives.
+     */
+    function updateDownloadLinks(filterVal) {
+      const stlLink = document.getElementById('download-stl-link');
+      const scadLink = document.getElementById('download-scad-link');
+      const stlIcon = document.getElementById('download-stl-icon');
+      const stlText = document.getElementById('download-stl-text');
+      const scadIcon = document.getElementById('download-scad-icon');
+      const scadText = document.getElementById('download-scad-text');
+      if (!stlLink || !scadLink) return;
+
+      if (currentMode === 'stack' && currentStackLayers && currentStackLayers.length > 0) {
+        if (filterVal === 'all') {
+          if (currentStackJob) {
+            stlLink.href = `/api/stack-zip/${currentStackJob}/stl`;
+            stlLink.setAttribute('download', `pcb3d_stack_stls.zip`);
+            if (stlIcon) stlIcon.textContent = 'folder_zip';
+            if (stlText) stlText.textContent = `Download All STLs (${currentStackLayers.length} Files .ZIP)`;
+
+            scadLink.href = `/api/stack-zip/${currentStackJob}/scad`;
+            scadLink.setAttribute('download', `pcb3d_stack_scads.zip`);
+            if (scadIcon) scadIcon.textContent = 'folder_zip';
+            if (scadText) scadText.textContent = `Download All .SCAD (${currentStackLayers.length} Files .ZIP)`;
+          }
+        } else {
+          const idx = parseInt(filterVal, 10);
+          const layer = currentStackLayers[idx];
+          if (layer) {
+            stlLink.href = layer.stl_url;
+            stlLink.setAttribute('download', `${layer.name}_pcb3d.stl`);
+            if (stlIcon) stlIcon.textContent = 'download';
+            if (stlText) stlText.textContent = `Download ${layer.name} .STL`;
+
+            if (layer.scad_url) {
+              scadLink.href = layer.scad_url;
+              scadLink.setAttribute('download', `${layer.name}_pcb3d.scad`);
+              if (scadIcon) scadIcon.textContent = 'code';
+              if (scadText) scadText.textContent = `Download ${layer.name} .SCAD`;
+            }
+          }
+        }
+        if (downloadCard) downloadCard.classList.add('active');
+      } else {
+        if (stlIcon) stlIcon.textContent = 'download';
+        if (stlText) stlText.textContent = 'Download .STL File';
+        if (scadIcon) scadIcon.textContent = 'code';
+        if (scadText) scadText.textContent = 'Download .SCAD File';
+      }
+    }
+
+    /**
+     * Render navigation pill buttons for multi-layer stack in the 2D Circuit Layout toolbar.
+     */
+    function updateDxfLayerNav() {
+      const nav = document.getElementById('dxf-layer-nav');
+      if (!nav) return;
+      if (currentMode !== 'stack' || !currentStackLayers || currentStackLayers.length <= 1) {
+        nav.style.display = 'none';
+        nav.innerHTML = '';
+        return;
+      }
+      nav.innerHTML = '';
+
+      // "ALL" button at the beginning of 2D nav
+      const allBtn = document.createElement('button');
+      allBtn.type = 'button';
+      allBtn.className = 'dxf-stack-btn' + (activeDxfLayerIdx === 'all' ? ' active' : '');
+      allBtn.dataset.dxfLayerIdx = 'all';
+      allBtn.textContent = `ALL (${currentStackLayers.length})`;
+      allBtn.title = `View all ${currentStackLayers.length} layers combined in 2D`;
+      allBtn.addEventListener('click', () => {
+        switchDxfLayer('all');
+      });
+      nav.appendChild(allBtn);
+
+      currentStackLayers.forEach((layer, idx) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'dxf-stack-btn' + (String(activeDxfLayerIdx) === String(idx) ? ' active' : '');
+        btn.dataset.dxfLayerIdx = String(idx);
+        btn.textContent = `L${idx + 1}: ${layer.role || 'Layer'}`;
+        btn.title = `Switch 2D view to ${layer.name} (${layer.role || 'Layer'})`;
+        btn.addEventListener('click', () => {
+          switchDxfLayer(idx);
+        });
+        nav.appendChild(btn);
+      });
+      nav.style.display = 'flex';
+    }
+
+    /**
+     * Switch currently displayed layer in the 2D vector visualizer.
+     */
+    function switchDxfLayer(target) {
+      if (!currentStackLayers || currentStackLayers.length === 0) return;
+      activeDxfLayerIdx = target;
+      document.querySelectorAll('.dxf-stack-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.dxfLayerIdx === String(target));
+      });
+
+      if (target === 'all') {
+        renderDxf2DAll(currentStackLayers);
+        updateDownloadLinks('all');
+        if (activeLayerFilter !== 'all') {
+          setLayerFilter('all', false);
+        }
+      } else {
+        const idx = parseInt(target, 10);
+        const layer = currentStackLayers[idx];
+        if (layer && layer.dxf) {
+          renderDxf2D(layer.dxf, `${layer.name} (L${idx + 1}: ${layer.role || 'Layer'})`);
+        }
+        updateDownloadLinks(idx);
+        if (activeLayerFilter !== idx) {
+          setLayerFilter(idx, false);
+        }
+      }
+    }
+
+    /**
      * Create one dimension line with two small end-caps and a CSS2D label.
      *
      * @param {THREE.Vector3} from    Start of the arrow shaft
@@ -959,101 +1375,146 @@
       scene.add(dimensionGroup);
     }
 
-    // Load STL & Center
+    /**
+     * Process loaded STL BufferGeometry into Substrate and Copper materials with proper rotation and origin.
+     */
+    function buildPartitionedMesh(geometry, baseThickness, traceDepth) {
+      geometry.computeVertexNormals();
+      geometry.computeBoundingBox();
+
+      const bbox = geometry.boundingBox;
+      const size = new THREE.Vector3();
+      bbox.getSize(size);
+
+      // Center on X and Y, sit on Z=0
+      geometry.center();
+      // Rotate so Z (STL up) becomes Y (Three.js up)
+      geometry.rotateX(-Math.PI / 2);
+
+      geometry.computeBoundingBox();
+      const rotSize = new THREE.Vector3();
+      geometry.boundingBox.getSize(rotSize);
+      geometry.translate(0, rotSize.y / 2, 0);
+
+      // Resolve base thickness and trace depth
+      const baseThick = (typeof baseThickness === 'number' && baseThickness > 0)
+        ? baseThickness
+        : (parseFloat(document.getElementById('base-thickness')?.value) || 1.6);
+      const traceD = (typeof traceDepth === 'number' && traceDepth > 0)
+        ? traceDepth
+        : (parseFloat(document.getElementById('trace-depth')?.value) || 0.4);
+
+      // In boards with corner alignment pegs (e.g. multi-layer base/mid layers),
+      // the total geometry height rotSize.y includes the peg protrusion (e.g. 1.6mm base + 1.2mm peg = 2.8mm).
+      // The true flat top surface of the substrate board sits at Y = baseThick.
+      const substrateTop = (rotSize.y > baseThick + 0.15) ? baseThick : rotSize.y;
+      const topCutoff = substrateTop - (traceD * 0.35);
+      const bottomCutoff = 0.05;
+
+      // Partition geometry triangles into Substrate and Trench Floor (Shiny Copper)
+      const pos = geometry.attributes.position;
+      const norm = geometry.attributes.normal;
+
+      const substratePositions = [];
+      const substrateNormals = [];
+      const copperPositions = [];
+      const copperNormals = [];
+
+      for (let i = 0; i < pos.count; i += 3) {
+        const yAvg = (pos.getY(i) + pos.getY(i + 1) + pos.getY(i + 2)) / 3;
+        const nyAvg = (norm.getY(i) + norm.getY(i + 1) + norm.getY(i + 2)) / 3;
+
+        // Trench bottom floor: normal faces upward (ny > 0.85) and strictly between board bottom and substrate top
+        const isTrenchBottom = nyAvg > 0.85 && yAvg < topCutoff && yAvg > bottomCutoff;
+
+        if (isTrenchBottom) {
+          for (let v = 0; v < 3; v++) {
+            copperPositions.push(pos.getX(i + v), pos.getY(i + v), pos.getZ(i + v));
+            copperNormals.push(norm.getX(i + v), norm.getY(i + v), norm.getZ(i + v));
+          }
+        } else {
+          for (let v = 0; v < 3; v++) {
+            substratePositions.push(pos.getX(i + v), pos.getY(i + v), pos.getZ(i + v));
+            substrateNormals.push(norm.getX(i + v), norm.getY(i + v), norm.getZ(i + v));
+          }
+        }
+      }
+
+      const newPos = new Float32Array(pos.count * 3);
+      const newNorm = new Float32Array(pos.count * 3);
+      newPos.set(substratePositions, 0);
+      newPos.set(copperPositions, substratePositions.length);
+      newNorm.set(substrateNormals, 0);
+      newNorm.set(copperNormals, substrateNormals.length);
+
+      geometry.setAttribute('position', new THREE.BufferAttribute(newPos, 3));
+      geometry.setAttribute('normal', new THREE.BufferAttribute(newNorm, 3));
+
+      geometry.clearGroups();
+      const subCount = substratePositions.length / 3;
+      const copCount = copperPositions.length / 3;
+      geometry.addGroup(0, subCount, 0);          // Group 0: Substrate
+      if (copCount > 0) {
+        geometry.addGroup(subCount, copCount, 1); // Group 1: Copper Trench
+      }
+
+      const subMat = currentSubstrateColor === 'green' ? greenMaterial : normalMaterial;
+      const mesh = new THREE.Mesh(geometry, [subMat, copperMaterial]);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      return { mesh, size, rotSize };
+    }
+
+    // Clean up previous 3D meshes and groups
+    function clearCurrent3DView() {
+      if (currentMesh) {
+        if (currentMesh.userData.edgeLines) {
+          currentMesh.userData.edgeLines.geometry.dispose();
+          currentMesh.userData.edgeLines.material.dispose();
+        }
+        scene.remove(currentMesh);
+        currentMesh.geometry.dispose();
+        currentMesh = null;
+      }
+      if (stackGroup) {
+        stackGroup.traverse(child => {
+          if (child.isMesh) {
+            if (child.userData.edgeLines) {
+              child.userData.edgeLines.geometry.dispose();
+              child.userData.edgeLines.material.dispose();
+            }
+            child.geometry.dispose();
+          }
+        });
+        scene.remove(stackGroup);
+        stackGroup = null;
+      }
+      if (dimensionGroup) {
+        dimensionGroup.traverse(obj => {
+          if (obj.isCSS2DObject && obj.element.parentNode) {
+            obj.element.parentNode.removeChild(obj.element);
+          }
+        });
+        scene.remove(dimensionGroup);
+        dimensionGroup = null;
+      }
+    }
+
+    // Load Single STL & Center
     function loadSTL(url) {
+      clearCurrent3DView();
       const loader = new STLLoader();
       loader.load(url, geometry => {
-        if (currentMesh) {
-          if (edgeLines) {
-            edgeLines.geometry.dispose();
-            edgeLines.material.dispose();
-            edgeLines = null;
-          }
-          scene.remove(currentMesh);
-          currentMesh.geometry.dispose();
-        }
-        edgeLines = null;
-
         currentGeometry = geometry;
-        geometry.computeVertexNormals();
-        geometry.computeBoundingBox();
-
-        // Calculate dimensions (STL units are mm)
-        const bbox = geometry.boundingBox;
-        const size = new THREE.Vector3();
-        bbox.getSize(size);
-
-        // Center on X and Y, sit on Z=0
-        geometry.center();
-        const heightZ = size.z;
-        // Rotate so Z (STL up) becomes Y (Three.js up)
-        geometry.rotateX(-Math.PI / 2);
-
-        // Update bounding box after rotation
-        geometry.computeBoundingBox();
-        const rotSize = new THREE.Vector3();
-        geometry.boundingBox.getSize(rotSize);
-        geometry.translate(0, rotSize.y / 2, 0);
-
-        // Partition geometry triangles into Substrate (Surface Normals) and Trench Floor (Shiny Copper)
-        const pos = geometry.attributes.position;
-        const norm = geometry.attributes.normal;
-
-        const substratePositions = [];
-        const substrateNormals = [];
-        const copperPositions = [];
-        const copperNormals = [];
-
-        const topCutoff = rotSize.y - 0.02;
-        const bottomCutoff = 0.02;
-
-        for (let i = 0; i < pos.count; i += 3) {
-          const yAvg = (pos.getY(i) + pos.getY(i + 1) + pos.getY(i + 2)) / 3;
-          const nyAvg = (norm.getY(i) + norm.getY(i + 1) + norm.getY(i + 2)) / 3;
-
-          // Trench bottom floor: normal faces upward (ny > 0.85) and is strictly between board bottom and top surface
-          const isTrenchBottom = nyAvg > 0.85 && yAvg < topCutoff && yAvg > bottomCutoff;
-
-          if (isTrenchBottom) {
-            for (let v = 0; v < 3; v++) {
-              copperPositions.push(pos.getX(i + v), pos.getY(i + v), pos.getZ(i + v));
-              copperNormals.push(norm.getX(i + v), norm.getY(i + v), norm.getZ(i + v));
-            }
-          } else {
-            for (let v = 0; v < 3; v++) {
-              substratePositions.push(pos.getX(i + v), pos.getY(i + v), pos.getZ(i + v));
-              substrateNormals.push(norm.getX(i + v), norm.getY(i + v), norm.getZ(i + v));
-            }
-          }
-        }
-
-        const newPos = new Float32Array(pos.count * 3);
-        const newNorm = new Float32Array(pos.count * 3);
-        newPos.set(substratePositions, 0);
-        newPos.set(copperPositions, substratePositions.length);
-        newNorm.set(substrateNormals, 0);
-        newNorm.set(copperNormals, substrateNormals.length);
-
-        geometry.setAttribute('position', new THREE.BufferAttribute(newPos, 3));
-        geometry.setAttribute('normal', new THREE.BufferAttribute(newNorm, 3));
-
-        geometry.clearGroups();
-        const subCount = substratePositions.length / 3;
-        const copCount = copperPositions.length / 3;
-        geometry.addGroup(0, subCount, 0);          // Group 0: Surface Normals Substrate
-        if (copCount > 0) {
-          geometry.addGroup(subCount, copCount, 1); // Group 1: Shiny Copper Trench Floor
-        }
-
-        const subMat = currentSubstrateColor === 'green' ? greenMaterial : normalMaterial;
-        currentMesh = new THREE.Mesh(geometry, [subMat, copperMaterial]);
-        currentMesh.castShadow = true;
-        currentMesh.receiveShadow = true;
+        const baseThick = parseFloat(document.getElementById('base-thickness')?.value) || 1.6;
+        const traceDepth = parseFloat(document.getElementById('trace-depth')?.value) || 0.4;
+        const built = buildPartitionedMesh(geometry, baseThick, traceDepth);
+        currentMesh = built.mesh;
         scene.add(currentMesh);
         updateWireframeDisplay();
 
-        // Auto adjust grid to PCB size
-        const maxDim = Math.max(rotSize.x, rotSize.z, 50);
+        // Adjust build grid
+        const maxDim = Math.max(built.rotSize.x, built.rotSize.z, 50);
         const gridSize = Math.ceil((maxDim * 2) / 20) * 20;
         scene.remove(gridHelper);
         gridHelper = new THREE.GridHelper(gridSize, gridSize / 5, 0x60a5fa, 0x334155);
@@ -1061,41 +1522,249 @@
         gridHelper.visible = isGridVisible;
         scene.add(gridHelper);
 
-        // Frame camera
         fitCameraToMesh(currentMesh);
-
-        // Store raw mm size then build dimension arrows
-        // size.x/y/z are pre-rotation (STL convention): x=width, y=depth, z=height
-        modelSizeMM = { x: size.x, y: size.z, z: size.y };
+        modelSizeMM = { x: built.size.x, y: built.size.z, z: built.size.y };
         buildDimensionArrows();
 
-        // Update HUD Stats (Width × Depth; Z axis omitted as user-defined)
         const hx = formatDim(modelSizeMM.x);
         const hd = formatDim(modelSizeMM.z);
         hudDim.textContent = `${hx} × ${hd}`;
         const triCount = geometry.attributes.position.count / 3;
         hudTriangles.textContent = triCount.toLocaleString();
         hudBadge.classList.add('active');
-
-        // Hide empty overlay
         emptyOverlay.style.display = 'none';
+
+        // Hide multi-layer toolbar elements in single mode
+        const rulerWidget = document.getElementById('stack-ruler-widget');
+        if (rulerWidget) rulerWidget.style.display = 'none';
+        document.getElementById('explode-controls-wrap').style.display = 'none';
       }, undefined, err => {
         showError('Failed to parse and render 3D STL file.');
       });
     }
 
-    function fitCameraToMesh(mesh) {
-      if (!mesh || !mesh.geometry.boundingBox) return;
-      const box = mesh.geometry.boundingBox;
+    // Multi-layer positioning (Stacked vs Exploded vs Isolated)
+    function updateStackMeshPositions() {
+      if (!stackGroup || layerSlots.length === 0) return;
+      let cumulativeY = 0;
+
+      layerSlots.forEach((slot, idx) => {
+        if (!slot.mesh) return;
+        const mesh = slot.mesh;
+        const thickness = slot.base_thickness || 1.6;
+
+        if (activeLayerFilter === 'all') {
+          mesh.visible = true;
+          // Normal opacity
+          const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+          mats.forEach(m => { m.opacity = 1.0; m.transparent = false; });
+
+          const yPos = cumulativeY + (isExploded ? idx * explodeDistance : 0);
+          mesh.position.set(0, yPos, 0);
+          cumulativeY += thickness;
+        } else if (parseInt(activeLayerFilter, 10) === idx) {
+          // Isolated single layer at ground level (Y=0)
+          mesh.visible = true;
+          mesh.position.set(0, 0, 0);
+          const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+          mats.forEach(m => { m.opacity = 1.0; m.transparent = false; });
+        } else {
+          // Other layers hidden when isolating a specific level
+          mesh.visible = false;
+        }
+      });
+      updateWireframeDisplay();
+    }
+
+    // Switch active layer viewing mode
+    function setLayerFilter(filterVal, sync2D = true) {
+      activeLayerFilter = filterVal;
+
+      // Update vertical discrete ruler notches
+      document.querySelectorAll('.ruler-notch-item').forEach(item => {
+        item.classList.toggle('active', item.dataset.layerIdx === String(filterVal));
+      });
+
+      updateStackMeshPositions();
+      updateDownloadLinks(filterVal);
+      if (filterVal === 'all') {
+        fitCameraToMesh(stackGroup);
+        if (sync2D && currentStackLayers && currentStackLayers.length > 0) {
+          switchDxfLayer('all');
+        }
+      } else {
+        const idx = parseInt(filterVal, 10);
+        if (layerSlots[idx] && layerSlots[idx].mesh) {
+          fitCameraToMesh(layerSlots[idx].mesh);
+        }
+        // Bidirectional Synchronization: update 2D visualizer
+        if (sync2D && currentStackLayers && currentStackLayers[idx] && currentStackLayers[idx].dxf) {
+          switchDxfLayer(idx);
+        }
+      }
+    }
+
+    /**
+     * Render the vertical discrete elevation ruler in the 3D viewport for multi-layer stacks.
+     */
+    function renderStackRuler() {
+      const widget = document.getElementById('stack-ruler-widget');
+      const track = document.getElementById('stack-ruler-track');
+      if (!widget || !track) return;
+
+      if (currentMode !== 'stack' || layerSlots.length <= 1) {
+        widget.style.display = 'none';
+        track.innerHTML = '';
+        return;
+      }
+
+      track.innerHTML = '';
+
+      // 1. "ALL" notch at top of vertical ruler
+      const allItem = document.createElement('div');
+      allItem.className = 'ruler-notch-item' + (activeLayerFilter === 'all' ? ' active' : '');
+      allItem.dataset.layerIdx = 'all';
+
+      const allTick = document.createElement('div');
+      allTick.className = 'ruler-tick-mark';
+
+      const allBtn = document.createElement('button');
+      allBtn.type = 'button';
+      allBtn.className = 'ruler-step-btn';
+      allBtn.title = 'View All Stacked Layers in 3D';
+      allBtn.innerHTML = `
+        <span class="ruler-step-badge">ALL</span>
+        <span class="ruler-step-name">Stack</span>
+      `;
+      allBtn.addEventListener('click', () => setLayerFilter('all'));
+
+      allItem.appendChild(allTick);
+      allItem.appendChild(allBtn);
+      track.appendChild(allItem);
+
+      // 2. Individual layer notches ordered from top to bottom (highest index to lowest)
+      // so the top layer is physically at the top of the vertical ruler!
+      let cumulativeElevation = 0;
+      const elevations = [];
+      for (let i = 0; i < layerSlots.length; i++) {
+        elevations.push(cumulativeElevation);
+        cumulativeElevation += (layerSlots[i].base_thickness || 1.6);
+      }
+
+      for (let idx = layerSlots.length - 1; idx >= 0; idx--) {
+        const slot = layerSlots[idx];
+        const elev = elevations[idx];
+
+        // Intermediate sub-ticks between levels
+        const subTickDiv = document.createElement('div');
+        subTickDiv.className = 'ruler-subtick-group';
+        subTickDiv.innerHTML = `
+          <div class="ruler-subtick"></div>
+          <div class="ruler-subtick"></div>
+        `;
+        track.appendChild(subTickDiv);
+
+        const item = document.createElement('div');
+        item.className = 'ruler-notch-item' + (String(activeLayerFilter) === String(idx) ? ' active' : '');
+        item.dataset.layerIdx = String(idx);
+
+        const tick = document.createElement('div');
+        tick.className = 'ruler-tick-mark';
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'ruler-step-btn';
+        btn.title = `Isolate ${slot.name} (L${idx + 1}: ${slot.role || 'Layer'})`;
+        btn.innerHTML = `
+          <span class="ruler-step-badge">L${idx + 1}</span>
+          <span class="ruler-step-name">${slot.role ? slot.role.toUpperCase() : 'LAYER'}</span>
+          <span class="ruler-step-elev">${elev > 0 ? '+' : ''}${elev.toFixed(1)}mm</span>
+        `;
+        btn.addEventListener('click', () => setLayerFilter(idx));
+
+        item.appendChild(tick);
+        item.appendChild(btn);
+        track.appendChild(item);
+      }
+
+      widget.style.display = 'flex';
+    }
+
+    // Load Multi-Layer Stack into 3D Viewport
+    async function loadMultiLayerStack(layersData) {
+      clearCurrent3DView();
+      stackGroup = new THREE.Group();
+      scene.add(stackGroup);
+
+      const loader = new STLLoader();
+      const loadPromises = layersData.map((layerInfo, idx) => {
+        return new Promise((resolve, reject) => {
+          loader.load(layerInfo.stl_url, geom => {
+            const baseThick = layerInfo.base_thickness || 1.6;
+            const traceDepth = layerInfo.trace_depth || 0.4;
+            const built = buildPartitionedMesh(geom, baseThick, traceDepth);
+            built.mesh.userData.layerIndex = idx;
+            built.mesh.userData.layerName = layerInfo.name;
+            layerSlots[idx].mesh = built.mesh;
+            layerSlots[idx].geometry = geom;
+            layerSlots[idx].rotSize = built.rotSize;
+            layerSlots[idx].base_thickness = baseThick;
+            layerSlots[idx].trace_depth = traceDepth;
+            stackGroup.add(built.mesh);
+            resolve(built);
+          }, undefined, reject);
+        });
+      });
+
+      try {
+        await Promise.all(loadPromises);
+
+        // Update Vertical Discrete Stack Ruler
+        renderStackRuler();
+        document.getElementById('explode-controls-wrap').style.display = 'flex';
+
+        updateStackMeshPositions();
+        fitCameraToMesh(stackGroup);
+
+        if (layerSlots[0] && layerSlots[0].mesh) {
+          const rotSize = layerSlots[0].rotSize;
+          const maxDim = Math.max(rotSize.x, rotSize.z, 50);
+          const gridSize = Math.ceil((maxDim * 2) / 20) * 20;
+          scene.remove(gridHelper);
+          gridHelper = new THREE.GridHelper(gridSize, gridSize / 5, 0x60a5fa, 0x334155);
+          gridHelper.position.y = 0;
+          gridHelper.visible = isGridVisible;
+          scene.add(gridHelper);
+
+          modelSizeMM = { x: rotSize.x, y: rotSize.y * layerSlots.length, z: rotSize.z };
+          const hx = formatDim(rotSize.x);
+          const hd = formatDim(rotSize.z);
+          hudDim.textContent = `${hx} × ${hd} (${layerSlots.length} Layers)`;
+          hudBadge.classList.add('active');
+        }
+
+        emptyOverlay.style.display = 'none';
+      } catch (err) {
+        showError('Failed to load multi-layer stack STL: ' + err.message);
+      }
+    }
+
+
+    function fitCameraToMesh(obj) {
+      if (!obj) return;
+      const box = new THREE.Box3().setFromObject(obj);
+      if (box.isEmpty()) return;
       const size = new THREE.Vector3();
       box.getSize(size);
+      const center = new THREE.Vector3();
+      box.getCenter(center);
       const maxDim = Math.max(size.x, size.y, size.z);
       const fov = camera.fov * (Math.PI / 180);
       let cameraDistance = Math.abs(maxDim / 2 / Math.tan(fov / 2)) * 2.2;
       cameraDistance = Math.max(cameraDistance, 30);
 
-      controls.target.set(0, size.y / 2, 0);
-      camera.position.set(cameraDistance * 0.7, cameraDistance * 0.9, cameraDistance * 1.1);
+      controls.target.copy(center);
+      camera.position.set(center.x + cameraDistance * 0.7, center.y + cameraDistance * 0.9, center.z + cameraDistance * 1.1);
       camera.lookAt(controls.target);
       controls.update();
     }
@@ -1119,13 +1788,18 @@
       let target = new THREE.Vector3(0, 0, 0);
       let dist = 140;
 
-      if (currentMesh && currentMesh.geometry && currentMesh.geometry.boundingBox) {
-        const box = currentMesh.geometry.boundingBox;
-        const size = new THREE.Vector3();
-        box.getSize(size);
-        const maxDim = Math.max(size.x, size.y, size.z);
-        dist = Math.max(maxDim * 2.2, 40);
-        target = new THREE.Vector3(0, size.y / 2, 0);
+      const activeObj = currentMesh || (stackGroup && stackGroup.children.length > 0 ? stackGroup : null);
+      if (activeObj) {
+        const box = new THREE.Box3().setFromObject(activeObj);
+        if (!box.isEmpty()) {
+          const size = new THREE.Vector3();
+          box.getSize(size);
+          const center = new THREE.Vector3();
+          box.getCenter(center);
+          const maxDim = Math.max(size.x, size.y, size.z);
+          dist = Math.max(maxDim * 2.2, 40);
+          target = center;
+        }
       }
 
       let newPos = new THREE.Vector3();
@@ -1358,42 +2032,52 @@
 
     // Wireframe Mode: clean CAD edges visible, surfaces transparent
     function updateWireframeDisplay() {
-      if (!currentMesh || !currentGeometry) return;
+      const applyWireframeToMesh = (mesh, geo) => {
+        if (!mesh || !geo) return;
+        let lines = mesh.userData.edgeLines;
+        if (!lines) {
+          const edgesGeo = new THREE.EdgesGeometry(geo, 20);
+          const lineMat = new THREE.LineBasicMaterial({
+            color: 0x38bdf8,
+            linewidth: 1.5,
+            transparent: true,
+            opacity: 0.95
+          });
+          lines = new THREE.LineSegments(edgesGeo, lineMat);
+          mesh.add(lines);
+          mesh.userData.edgeLines = lines;
+        }
 
-      if (!edgeLines) {
-        // Extract CAD feature and boundary edges (threshold angle 20 deg filters internal triangulation)
-        const edgesGeo = new THREE.EdgesGeometry(currentGeometry, 20);
-        const lineMat = new THREE.LineBasicMaterial({
-          color: 0x38bdf8,
-          linewidth: 1.5,
-          transparent: true,
-          opacity: 0.95
-        });
-        edgeLines = new THREE.LineSegments(edgesGeo, lineMat);
-        currentMesh.add(edgeLines);
-      }
+        const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+        if (isWireframe) {
+          lines.visible = true;
+          mats.forEach(mat => {
+            mat.transparent = true;
+            mat.opacity = 0.0;
+            mat.depthWrite = false;
+            mat.needsUpdate = true;
+          });
+        } else {
+          lines.visible = false;
+          mats.forEach(mat => {
+            mat.transparent = false;
+            mat.opacity = 1.0;
+            mat.depthWrite = true;
+            mat.needsUpdate = true;
+          });
+        }
+      };
 
-      const mats = Array.isArray(currentMesh.material) ? currentMesh.material : [currentMesh.material];
-      if (isWireframe) {
-        edgeLines.visible = true;
-        // Make the mesh surfaces completely transparent so only model edges are visible
-        mats.forEach(mat => {
-          mat.transparent = true;
-          mat.opacity = 0.0;
-          mat.depthWrite = false;
-          mat.needsUpdate = true;
-        });
-      } else {
-        if (edgeLines) edgeLines.visible = false;
-        // Restore standard opaque surface
-        mats.forEach(mat => {
-          mat.transparent = false;
-          mat.opacity = 1.0;
-          mat.depthWrite = true;
-          mat.needsUpdate = true;
-        });
+      if (currentMesh && currentGeometry) {
+        applyWireframeToMesh(currentMesh, currentGeometry);
       }
+      layerSlots.forEach(slot => {
+        if (slot.mesh && slot.geometry) {
+          applyWireframeToMesh(slot.mesh, slot.geometry);
+        }
+      });
     }
+
 
 
     // UI Helpers
@@ -1612,73 +2296,374 @@
       if (e.target === helpModal) helpModal.close();
     });
 
-    // Form Submit (Generation)
+    // Exploded View Slider & Toggle
+    const btnExplodeToggle = document.getElementById('btn-explode-toggle');
+    const explodeSlider = document.getElementById('explode-slider');
+    btnExplodeToggle.addEventListener('click', () => {
+      isExploded = !isExploded;
+      btnExplodeToggle.classList.toggle('active', isExploded);
+      if (isExploded && explodeDistance === 0) {
+        explodeDistance = 12;
+        explodeSlider.value = 12;
+      } else if (!isExploded) {
+        explodeDistance = 0;
+        explodeSlider.value = 0;
+      }
+      updateStackMeshPositions();
+    });
+
+    explodeSlider.addEventListener('input', (e) => {
+      explodeDistance = parseFloat(e.target.value);
+      isExploded = explodeDistance > 0;
+      btnExplodeToggle.classList.toggle('active', isExploded);
+      updateStackMeshPositions();
+    });
+
+    // Multi-Layer Tab Switcher
+    const tabModeSingle = document.getElementById('tab-mode-single');
+    const tabModeStack = document.getElementById('tab-mode-stack');
+    const singleLayerCard = document.getElementById('single-layer-card');
+    const stackManagerCard = document.getElementById('stack-manager-card');
+
+    function resetAllState() {
+      // 1. Clear 3D Viewport and reset scene
+      clearCurrent3DView();
+      if (emptyOverlay) emptyOverlay.style.display = '';
+      if (hudBadge) hudBadge.classList.remove('active');
+      if (hudDim) hudDim.textContent = '--';
+      const explodeControls = document.getElementById('explode-controls-wrap');
+      if (explodeControls) {
+        explodeControls.style.display = 'none';
+        const explodeSlider = document.getElementById('explode-slider');
+        if (explodeSlider) explodeSlider.value = '0';
+        isExploded = false;
+        explodeDistance = 0;
+      }
+      const ruler = document.getElementById('stack-ruler-widget');
+      if (ruler) {
+        ruler.style.display = 'none';
+        const rulerTrack = document.getElementById('stack-ruler-track');
+        if (rulerTrack) rulerTrack.innerHTML = '';
+      }
+
+      // 2. Clear 2D Visualizer
+      clearDxf2D();
+      const nav = document.getElementById('dxf-layer-nav');
+      if (nav) {
+        nav.style.display = 'none';
+        nav.innerHTML = '';
+      }
+      currentStackLayers = [];
+      currentStackJob = null;
+      activeDxfLayerIdx = 'all';
+      activeLayerFilter = 'all';
+
+      // 3. Clear Download Actions & generated links
+      if (downloadCard) downloadCard.classList.remove('active');
+      if (downloadStlLink) downloadStlLink.removeAttribute('href');
+      if (downloadScadLink) downloadScadLink.removeAttribute('href');
+      updateDownloadLinks('single');
+
+      // 4. Reset Single-Layer File Selection
+      updateFileDisplay(null);
+      if (fileInput) fileInput.value = '';
+
+      // 5. Reset Multi-Layer Slots
+      layerSlots = [];
+      if (layerStackList) layerStackList.innerHTML = '';
+
+      // 6. Clear error messages
+      clearError();
+    }
+
+    function setBoardMode(mode) {
+      if (currentMode === mode) return;
+      resetAllState();
+
+      currentMode = mode;
+      tabModeSingle.classList.toggle('active', mode === 'single');
+      tabModeStack.classList.toggle('active', mode === 'stack');
+      singleLayerCard.style.display = mode === 'single' ? '' : 'none';
+      stackManagerCard.style.display = mode === 'stack' ? '' : 'none';
+
+      const m4Group = document.getElementById('m4-holes-group');
+      if (m4Group) {
+        m4Group.style.display = mode === 'single' ? '' : 'none';
+      }
+
+      if (mode === 'stack') {
+        addLayerSlot('Layer 1 (Base)');
+        addLayerSlot('Layer 2 (Shield / Top)');
+      }
+    }
+
+    tabModeSingle.addEventListener('click', () => setBoardMode('single'));
+    tabModeStack.addEventListener('click', () => setBoardMode('stack'));
+
+    // Layer Slot Manager UI & Reordering
+    const layerStackList = document.getElementById('layer-stack-list');
+    const btnAddLayerSlot = document.getElementById('btn-add-layer-slot');
+    const btnLoadSampleStack = document.getElementById('btn-load-sample-stack');
+
+    function updateLayerRoles() {
+      const total = layerSlots.length;
+      layerSlots.forEach((slot, idx) => {
+        if (total === 1) slot.role = 'single';
+        else if (idx === 0) slot.role = 'bottom';
+        else if (idx === total - 1) slot.role = 'top';
+        else slot.role = 'middle';
+      });
+    }
+
+    function renderLayerStackSlots() {
+      updateLayerRoles();
+      layerStackList.innerHTML = '';
+      const total = layerSlots.length;
+
+      layerSlots.forEach((slot, idx) => {
+        const card = document.createElement('div');
+        card.className = 'layer-slot-card';
+        card.dataset.slotIndex = idx;
+
+        const roleLabels = {
+          bottom: 'Base (Level 0)',
+          middle: `Mid (Level ${idx})`,
+          top: `Top (Level ${idx})`,
+          single: 'Single Layer'
+        };
+
+        card.innerHTML = `
+          <div class="layer-slot-header">
+            <div class="layer-slot-title-wrap">
+              <span class="layer-slot-badge">L${idx + 1}</span>
+              <span style="font-size: 0.8125rem; font-weight: 600; color: #fff;">${slot.name}</span>
+              <span class="layer-slot-role-badge">${roleLabels[slot.role] || slot.role}</span>
+            </div>
+            <div class="layer-reorder-actions">
+              <button type="button" class="btn-slot-icon btn-move-up" title="Move Up in Stack" ${idx === 0 ? 'disabled' : ''}>
+                <span class="material-symbols-outlined" style="font-size: 16px;">keyboard_arrow_up</span>
+              </button>
+              <button type="button" class="btn-slot-icon btn-move-down" title="Move Down in Stack" ${idx === total - 1 ? 'disabled' : ''}>
+                <span class="material-symbols-outlined" style="font-size: 16px;">keyboard_arrow_down</span>
+              </button>
+              <button type="button" class="btn-slot-icon btn-remove-slot" title="Remove Layer" ${total <= 1 ? 'disabled' : ''}>
+                <span class="material-symbols-outlined" style="font-size: 16px; color: #f87171;">delete</span>
+              </button>
+            </div>
+          </div>
+          <div class="layer-file-drop">
+            <div class="layer-file-name">${slot.file ? slot.file.name : 'Click to select DXF / SVG file...'}</div>
+            <span class="material-symbols-outlined" style="font-size: 16px; color: #60a5fa;">upload_file</span>
+            <input type="file" class="layer-file-input" accept=".dxf,.svg" style="display: none;">
+          </div>
+        `;
+
+        // Reorder events
+        card.querySelector('.btn-move-up').addEventListener('click', () => {
+          if (idx > 0) {
+            const temp = layerSlots[idx - 1];
+            layerSlots[idx - 1] = layerSlots[idx];
+            layerSlots[idx] = temp;
+            renderLayerStackSlots();
+          }
+        });
+
+        card.querySelector('.btn-move-down').addEventListener('click', () => {
+          if (idx < total - 1) {
+            const temp = layerSlots[idx + 1];
+            layerSlots[idx + 1] = layerSlots[idx];
+            layerSlots[idx] = temp;
+            renderLayerStackSlots();
+          }
+        });
+
+        card.querySelector('.btn-remove-slot').addEventListener('click', () => {
+          if (layerSlots.length > 1) {
+            layerSlots.splice(idx, 1);
+            renderLayerStackSlots();
+          }
+        });
+
+        // File selection
+        const fileDrop = card.querySelector('.layer-file-drop');
+        const fileInputEl = card.querySelector('.layer-file-input');
+        fileDrop.addEventListener('click', () => fileInputEl.click());
+        fileInputEl.addEventListener('change', async (e) => {
+          if (e.target.files && e.target.files.length > 0) {
+            slot.file = e.target.files[0];
+            slot.name = slot.file.name.replace(/\.(dxf|svg)$/i, '');
+            renderLayerStackSlots();
+            try {
+              await loadDxfPreview(slot.file, false);
+            } catch (err) {
+              // ignore preview errors
+            }
+          }
+        });
+
+        layerStackList.appendChild(card);
+      });
+    }
+
+    function addLayerSlot(name = null, file = null) {
+      const idx = layerSlots.length;
+      layerSlots.push({
+        id: 'slot_' + Math.random().toString(36).substring(2, 9),
+        name: name || `Layer ${idx + 1}`,
+        file: file,
+        role: 'middle'
+      });
+      renderLayerStackSlots();
+    }
+
+    btnAddLayerSlot.addEventListener('click', () => addLayerSlot());
+
+    // Preset 2-Layer Stack Loader
+    btnLoadSampleStack.addEventListener('click', async () => {
+      try {
+        btnLoadSampleStack.disabled = true;
+        btnLoadSampleStack.textContent = 'Loading Sample Stack...';
+
+        const [resBase, resShield] = await Promise.all([
+          fetch('/api/sample-dxf?id=sample_pcb&m4_holes=0'),
+          fetch('/api/sample-dxf?id=sample_shield&m4_holes=0')
+        ]);
+
+        const [blobBase, blobShield] = await Promise.all([resBase.blob(), resShield.blob()]);
+        const fileBase = new File([blobBase], `sample_pcb_base.dxf`, { type: 'application/dxf' });
+        const fileShield = new File([blobShield], `sample_shield_top.dxf`, { type: 'application/dxf' });
+
+        layerSlots = [
+          { id: 'base', name: 'DIP-8 Controller Base', file: fileBase, role: 'bottom' },
+          { id: 'shield', name: 'Power Shield Cap', file: fileShield, role: 'top' }
+        ];
+        renderLayerStackSlots();
+
+        // Trigger stack generation automatically
+        form.dispatchEvent(new Event('submit', { cancelable: true }));
+      } catch (err) {
+        showError('Could not load sample stack: ' + err.message);
+      } finally {
+        btnLoadSampleStack.disabled = false;
+        btnLoadSampleStack.innerHTML = `
+          <span class="material-symbols-outlined">bolt</span>
+          Load 2-Layer Preset Stack (Base + Shield)
+        `;
+      }
+    });
+
+    // Form Submit (Generation: Single vs Multi-Layer Stack)
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       clearError();
 
-      if (!fileInput.files || fileInput.files.length === 0) {
-        showError('Please select or drop a DXF file first.');
-        return;
-      }
-
-      // If a sample board is active, ensure the file matches the current toggleM4Holes state
-      if (currentSampleId) {
-        const expectedSuffix = toggleM4Holes.checked ? '_with_m4.dxf' : '_no_m4.dxf';
-        if (!fileInput.files[0].name.endsWith(expectedSuffix)) {
-          await loadSampleBoard(currentSampleId, toggleM4Holes.checked);
+      if (currentMode === 'single') {
+        if (!fileInput.files || fileInput.files.length === 0) {
+          showError('Please select or drop a DXF or SVG file first.');
           return;
         }
-      }
 
-      // UI state: loading
-      btnGenerate.disabled = true;
-      loadingOverlay.classList.add('active');
-      loadingStep.textContent = 'Uploading DXF & parsing layers...';
+        // If a sample board is active, ensure the file matches the current toggleM4Holes state
+        if (currentSampleId) {
+          const expectedSuffix = toggleM4Holes.checked ? '_with_m4.dxf' : '_no_m4.dxf';
+          if (!fileInput.files[0].name.endsWith(expectedSuffix)) {
+            await loadSampleBoard(currentSampleId, toggleM4Holes.checked);
+            return;
+          }
+        }
 
-      const formData = new FormData(form);
-      formData.set('include_m4', toggleM4Holes.checked ? '1' : '0');
+        btnGenerate.disabled = true;
+        loadingOverlay.classList.add('active');
+        loadingStep.textContent = 'Uploading file & compiling OpenSCAD...';
 
-      try {
-        const stepTimer = setTimeout(() => {
-          loadingStep.textContent = 'Executing OpenSCAD CSG union & extrusions...';
-        }, 1200);
+        const formData = new FormData(form);
+        formData.set('include_m4', toggleM4Holes.checked ? '1' : '0');
+        formData.set('stacking_pins', document.getElementById('toggle-stacking-pins').checked ? '1' : '0');
 
-        const response = await fetch('/api/generate', {
-          method: 'POST',
-          body: formData
+        try {
+          const response = await fetch('/api/generate', {
+            method: 'POST',
+            body: formData
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || 'Generation failed');
+
+          loadingStep.textContent = 'Loading 3D mesh into viewport...';
+          loadSTL(result.stl_url);
+
+          downloadStlLink.href = result.stl_url;
+          downloadStlLink.setAttribute('download', `${fileInput.files[0].name.replace(/\.(dxf|svg)$/i, '')}_pcb3d.stl`);
+          if (result.scad_url && downloadScadLink) {
+            downloadScadLink.href = result.scad_url;
+            downloadScadLink.setAttribute('download', `${fileInput.files[0].name.replace(/\.(dxf|svg)$/i, '')}_pcb3d.scad`);
+          }
+          downloadCard.classList.add('active');
+
+          if (result.dxf) {
+            renderDxf2D(result.dxf, fileInput.files[0].name);
+          }
+        } catch (err) {
+          showError(err.message);
+        } finally {
+          loadingOverlay.classList.remove('active');
+          btnGenerate.disabled = false;
+        }
+      } else {
+        // Multi-Layer Stack Mode
+        const missingFiles = layerSlots.filter(s => !s.file);
+        if (missingFiles.length > 0) {
+          showError(`Please choose a DXF or SVG file for all layer slots (${missingFiles.map(m => m.name).join(', ')}).`);
+          return;
+        }
+
+        btnGenerate.disabled = true;
+        loadingOverlay.classList.add('active');
+        loadingStep.textContent = `Compiling ${layerSlots.length} aligned stack layers...`;
+
+        const formData = new FormData(form);
+        // Clear single-file input
+        formData.delete('dxf');
+        formData.delete('file');
+
+        layerSlots.forEach((slot, idx) => {
+          formData.append('layers', slot.file);
+          formData.append('roles', slot.role);
+          formData.append('names', slot.name);
         });
 
-        clearTimeout(stepTimer);
-        const result = await response.json();
+        formData.set('include_m4', '0');
+        formData.set('stacking_pins', document.getElementById('toggle-stacking-pins').checked ? '1' : '0');
 
-        if (!response.ok) {
-          throw new Error(result.error || 'Generation failed');
+        try {
+          const response = await fetch('/api/generate-stack', {
+            method: 'POST',
+            body: formData
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || 'Multi-layer compilation failed');
+
+          loadingStep.textContent = 'Loading multi-layer stack into 3D viewer...';
+          currentStackJob = result.job;
+          currentStackLayers = result.layers;
+          await loadMultiLayerStack(result.layers);
+
+          if (result.layers.length > 0) {
+            activeDxfLayerIdx = 'all';
+            activeLayerFilter = 'all';
+            updateDxfLayerNav();
+            renderDxf2DAll(result.layers);
+            updateDownloadLinks('all');
+            downloadCard.classList.add('active');
+          }
+        } catch (err) {
+          showError(err.message);
+        } finally {
+          loadingOverlay.classList.remove('active');
+          btnGenerate.disabled = false;
         }
-
-        loadingStep.textContent = 'Loading 3D mesh into viewport...';
-        loadSTL(result.stl_url);
-
-        // Update download card with STL and SCAD links
-        downloadStlLink.href = result.stl_url;
-        downloadStlLink.setAttribute('download', `${fileInput.files[0].name.replace(/\.(dxf|svg)$/i, '')}_pcb3d.stl`);
-        if (result.scad_url && downloadScadLink) {
-          downloadScadLink.href = result.scad_url;
-          downloadScadLink.setAttribute('download', `${fileInput.files[0].name.replace(/\.(dxf|svg)$/i, '')}_pcb3d.scad`);
-        }
-        downloadCard.classList.add('active');
-
-        // Always synchronize 2D circuit layout with generated geometry
-        if (result.dxf) {
-          renderDxf2D(result.dxf, fileInput.files[0].name);
-        }
-      } catch (err) {
-        showError(err.message);
-      } finally {
-        loadingOverlay.classList.remove('active');
-        btnGenerate.disabled = false;
       }
     });
+
 
     // Initialize 3D on load
     initThree();

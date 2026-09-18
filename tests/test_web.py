@@ -244,3 +244,87 @@ def test_web_rejects_unsupported_file_extension(tmp_path):
     assert "Only DXF (.dxf) and SVG (.svg) files are supported" in response.get_json()["error"]
 
 
+def test_web_generate_stack_endpoint(tmp_path):
+    import io
+    import shutil
+    from pcb3d.samples import generate_dip8_sample_dxf, generate_dip8_shield_sample_dxf
+    if not shutil.which("openscad"):
+        pytest.skip("OpenSCAD executable not available on PATH")
+
+    client = create_app(output_dir=tmp_path).test_client()
+    dxf1 = generate_dip8_sample_dxf(m4_holes=True).encode("utf-8")
+    dxf2 = generate_dip8_shield_sample_dxf(m4_holes=True).encode("utf-8")
+
+    data = {
+        "layers": [
+            (io.BytesIO(dxf1), "layer1_base.dxf"),
+            (io.BytesIO(dxf2), "layer2_shield.dxf"),
+        ],
+        "roles": ["bottom", "top"],
+        "names": ["Base Board", "Top Shield"],
+        "stacking_pins": "1",
+        "stacking_pin_diameter": "3.0",
+        "stacking_pin_height": "1.2",
+    }
+    response = client.post("/api/generate-stack", data=data, content_type="multipart/form-data")
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["total_layers"] == 2
+    assert len(payload["layers"]) == 2
+    assert payload["layers"][0]["role"] == "bottom"
+    assert payload["layers"][1]["role"] == "top"
+    assert "stl_url" in payload["layers"][0]
+    assert "scad_url" in payload["layers"][0]
+
+    # Verify 2D vector circuit payload is fully populated for both layers
+    for layer in payload["layers"]:
+        assert "dxf" in layer
+        assert "base_thickness" in layer
+        assert "trace_depth" in layer
+        dxf_info = layer["dxf"]
+        assert "bounds" in dxf_info
+        assert isinstance(dxf_info["bounds"], list)
+        assert len(dxf_info["bounds"]) == 4
+        assert "size" in dxf_info
+        assert len(dxf_info["size"]) == 2
+        assert "outlines" in dxf_info
+        assert len(dxf_info["outlines"]) >= 1
+        assert "traces" in dxf_info
+        assert "holes" in dxf_info
+        assert "stats" in dxf_info
+        assert "trace_count" in dxf_info["stats"]
+        assert "hole_count" in dxf_info["stats"]
+        # Verify M4 mounting holes (radius >= 2.0mm) are disabled in multi-layer stack
+        for hole in dxf_info["holes"]:
+            assert hole["radius"] < 2.0
+
+    # Verify Stack ZIP bundle endpoints
+    import zipfile
+    job = payload["job"]
+
+    # Download STLs as ZIP
+    res_stl_zip = client.get(f"/api/stack-zip/{job}/stl")
+    assert res_stl_zip.status_code == 200
+    assert res_stl_zip.mimetype == "application/zip"
+    with zipfile.ZipFile(io.BytesIO(res_stl_zip.data)) as zf:
+        namelist = zf.namelist()
+        assert len(namelist) == 2
+        assert all(n.endswith(".stl") for n in namelist)
+
+    # Download SCADs as ZIP
+    res_scad_zip = client.get(f"/api/stack-zip/{job}/scad")
+    assert res_scad_zip.status_code == 200
+    assert res_scad_zip.mimetype == "application/zip"
+    with zipfile.ZipFile(io.BytesIO(res_scad_zip.data)) as zf:
+        namelist = zf.namelist()
+        assert len(namelist) == 2
+        assert all(n.endswith(".scad") for n in namelist)
+
+    # Invalid file type
+    res_invalid = client.get(f"/api/stack-zip/{job}/pdf")
+    assert res_invalid.status_code == 400
+
+    # Non-existent job
+    res_missing = client.get("/api/stack-zip/nonexistentjob123/stl")
+    assert res_missing.status_code == 404
+

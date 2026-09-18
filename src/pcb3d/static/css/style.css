@@ -751,6 +751,7 @@ details.advanced-panel[open] summary .material-symbols-outlined {
 }
 
 .dxf-title-group,
+.dxf-layer-nav,
 .dxf-layer-group,
 .dxf-actions-group {
   display: flex;
@@ -763,6 +764,32 @@ details.advanced-panel[open] summary .material-symbols-outlined {
   padding: clamp(0.2rem, 0.3vw, 0.45rem) clamp(0.4rem, 0.55vw, 0.75rem);
   pointer-events: auto;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.dxf-stack-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: clamp(0.65rem, 0.72vw, 0.8125rem);
+  font-weight: 600;
+  padding: clamp(0.15rem, 0.25vw, 0.3rem) clamp(0.35rem, 0.5vw, 0.6rem);
+  border-radius: clamp(4px, 0.35vw, 6px);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.dxf-stack-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dxf-stack-btn.active {
+  background: #2563eb;
+  color: #fff;
+  border-color: #3b82f6;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);
 }
 
 .dxf-title-icon {
@@ -1512,3 +1539,386 @@ dialog.modal::backdrop {
   border-color: #fbbf24;
   color: #fff;
 }
+
+/* ─── Multi-Layer Stack Management & UI ────────────────────────────────────── */
+
+/* Sidebar Mode Tabs */
+.board-mode-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 0.25rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  margin-bottom: 0.75rem;
+}
+
+.mode-tab-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 0.45rem 0.5rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  transition: all 0.2s ease;
+}
+
+.mode-tab-btn.active {
+  background: var(--bg-card);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Layer Stack Slots List */
+.layer-stack-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.layer-slot-card {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+}
+
+.layer-slot-card:hover {
+  border-color: rgba(96, 165, 250, 0.4);
+}
+
+.layer-slot-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.layer-slot-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.layer-slot-badge {
+  font-size: 0.6875rem;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  background: rgba(96, 165, 250, 0.15);
+  color: #93c5fd;
+  border: 1px solid rgba(96, 165, 250, 0.3);
+}
+
+.layer-slot-role-badge {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.12rem 0.35rem;
+  border-radius: 4px;
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.layer-reorder-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.btn-slot-icon {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.2rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.btn-slot-icon:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.btn-slot-icon:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+.layer-file-drop {
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem;
+  background: rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: all 0.2s ease;
+}
+
+.layer-file-drop:hover {
+  border-color: var(--accent-blue);
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.layer-file-name {
+  font-size: 0.75rem;
+  color: var(--text-main);
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
+}
+
+.btn-add-layer-slot {
+  background: rgba(96, 165, 250, 0.08);
+  border: 1px dashed rgba(96, 165, 250, 0.3);
+  color: #93c5fd;
+  border-radius: var(--radius-md);
+  padding: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  transition: all 0.2s ease;
+}
+
+.btn-add-layer-slot:hover {
+  background: rgba(96, 165, 250, 0.15);
+  border-color: #60a5fa;
+  color: #fff;
+}
+
+/* Stacking Pegs Settings Row */
+.stacking-params-panel {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 0.75rem;
+  background: rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Vertical Discrete Stack Ruler (Multi-Layer 3D Elevation Gauge)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.stack-ruler-widget {
+  position: absolute;
+  right: clamp(12px, 1.5vw, 22px);
+  top: clamp(68px, 10vh, 98px);
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  background: rgba(15, 23, 42, 0.88);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--border-subtle);
+  border-radius: clamp(8px, 0.8vw, 12px);
+  padding: clamp(0.35rem, 0.5vw, 0.65rem) clamp(0.35rem, 0.5vw, 0.6rem);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  user-select: none;
+  pointer-events: auto;
+  min-width: clamp(100px, 9vw, 140px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.stack-ruler-header {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding-bottom: clamp(0.25rem, 0.35vw, 0.45rem);
+  margin-bottom: clamp(0.25rem, 0.35vw, 0.45rem);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.stack-ruler-icon {
+  font-size: clamp(14px, 1.1vw, 18px);
+  color: var(--accent-blue);
+}
+
+.stack-ruler-title {
+  font-family: var(--font-mono);
+  font-size: clamp(0.625rem, 0.7vw, 0.75rem);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+  text-transform: uppercase;
+}
+
+.stack-ruler-track {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.25rem, 0.35vw, 0.45rem);
+  padding-left: clamp(0.5rem, 0.65vw, 0.85rem);
+  border-left: 2px solid rgba(148, 163, 184, 0.3);
+  margin-left: clamp(0.35rem, 0.45vw, 0.55rem);
+}
+
+.ruler-notch-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* Horizontal tick mark originating at vertical ruler spine */
+.ruler-tick-mark {
+  position: absolute;
+  left: calc(-1 * clamp(0.5rem, 0.65vw, 0.85rem) - 2px);
+  top: 50%;
+  width: clamp(6px, 0.5vw, 10px);
+  height: 2px;
+  background: rgba(148, 163, 184, 0.4);
+  transform: translateY(-50%);
+  transition: all 0.2s ease;
+}
+
+.ruler-notch-item.active .ruler-tick-mark {
+  background: #38bdf8;
+  width: clamp(10px, 0.8vw, 15px);
+  box-shadow: 0 0 8px #38bdf8;
+}
+
+.ruler-subtick-group {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(3px, 0.35vw, 5px);
+  margin: 1px 0;
+}
+
+.ruler-subtick {
+  position: relative;
+  left: calc(-1 * clamp(0.5rem, 0.65vw, 0.85rem) - 2px);
+  width: clamp(3px, 0.3vw, 5px);
+  height: 1px;
+  background: rgba(148, 163, 184, 0.25);
+}
+
+.ruler-step-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(0.3rem, 0.4vw, 0.6rem);
+  width: 100%;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: clamp(4px, 0.4vw, 6px);
+  padding: clamp(0.2rem, 0.3vw, 0.38rem) clamp(0.35rem, 0.5vw, 0.6rem);
+  cursor: pointer;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: clamp(0.65rem, 0.72vw, 0.8rem);
+  transition: all 0.15s ease;
+}
+
+.ruler-step-btn:hover {
+  background: rgba(255, 255, 255, 0.09);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.ruler-notch-item.active .ruler-step-btn {
+  background: #2563eb;
+  border-color: #38bdf8;
+  color: #fff;
+  box-shadow: 0 0 14px rgba(37, 99, 235, 0.5);
+}
+
+.ruler-step-badge {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: clamp(0.65rem, 0.72vw, 0.8rem);
+  color: #93c5fd;
+}
+
+.ruler-notch-item.active .ruler-step-badge {
+  color: #fff;
+}
+
+.ruler-step-name {
+  font-size: clamp(0.6rem, 0.68vw, 0.75rem);
+  font-weight: 500;
+  color: var(--text-muted);
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+  max-width: 62px;
+}
+
+.ruler-notch-item.active .ruler-step-name {
+  color: #e0e7ff;
+}
+
+.ruler-step-elev {
+  font-family: var(--font-mono);
+  font-size: clamp(0.55rem, 0.62vw, 0.675rem);
+  color: var(--text-faint);
+  margin-left: auto;
+}
+
+.ruler-notch-item.active .ruler-step-elev {
+  color: #bfdbfe;
+}
+
+/* Exploded View Toggle & Slider */
+.explode-controls-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-subtle);
+  border-radius: clamp(6px, 0.6vw, 10px);
+  padding: clamp(0.2rem, 0.3vw, 0.35rem) clamp(0.4rem, 0.5vw, 0.6rem);
+}
+
+.btn-explode-toggle {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.2rem;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.btn-explode-toggle:hover, .btn-explode-toggle.active {
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+}
+
+.explode-slider {
+  width: clamp(55px, 6vw, 90px);
+  accent-color: #38bdf8;
+  cursor: pointer;
+}
+

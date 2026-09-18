@@ -70,6 +70,20 @@ class BoardGeometry:
         )
 
 
+    def compute_stacking_locations(self, margin: float = 3.5) -> tuple[Point, Point, Point, Point]:
+        """Compute the 4 corner coordinates for stacking pegs/sockets inside the board bounds."""
+        left, bottom, right, top = self.bounds
+        width = right - left
+        height = top - bottom
+        # Dynamically scale margin if board is very compact
+        actual_margin = min(margin, min(width, height) * 0.2)
+        return (
+            Point(left + actual_margin, bottom + actual_margin),
+            Point(right - actual_margin, bottom + actual_margin),
+            Point(right - actual_margin, top - actual_margin),
+            Point(left + actual_margin, top - actual_margin),
+        )
+
     def connect_traces_to_holes(self, snap_tolerance: float = 0.5) -> "BoardGeometry":
         """Snap open trace endpoints within (hole.radius + snap_tolerance) to the hole center."""
         if not self.holes or not self.traces or snap_tolerance < 0:
@@ -134,6 +148,13 @@ class GenerationParameters:
     trace_width: float = 0.4
     outline_margin: float = 0.0
     snap_tolerance: float = 0.5
+    # Stacking peg & socket parameters
+    stacking_pins: bool = False
+    stacking_pin_diameter: float = 3.0
+    stacking_pin_height: float = 1.2
+    stacking_clearance: float = 0.15
+    layer_role: str = "single"  # 'bottom', 'middle', 'top', or 'single'
+    stack_index: int = 0
 
     @property
     def trace_depth(self) -> float:
@@ -146,15 +167,21 @@ class GenerationParameters:
             "trace_width": self.trace_width,
             "outline_margin": self.outline_margin,
             "snap_tolerance": self.snap_tolerance,
+            "stacking_pin_diameter": self.stacking_pin_diameter,
+            "stacking_pin_height": self.stacking_pin_height,
+            "stacking_clearance": self.stacking_clearance,
         }
         for name, value in values.items():
-            non_negative = name in {"outline_margin", "snap_tolerance"}
+            non_negative = name in {"outline_margin", "snap_tolerance", "stacking_clearance"}
             if not math.isfinite(value) or value < 0 or (not non_negative and value == 0):
                 requirement = "non-negative" if non_negative else "positive"
                 raise ValueError(f"{name} must be {requirement}")
         # Prevent trenches from cutting entirely through or below the substrate
         if self.trace_height >= self.base_thickness:
             raise ValueError("trace_height (trench depth) must be less than base_thickness")
+        valid_roles = {"bottom", "middle", "top", "single"}
+        if self.layer_role not in valid_roles:
+            raise ValueError(f"layer_role must be one of {valid_roles}, got '{self.layer_role}'")
         return self
 
     @classmethod
@@ -164,22 +191,32 @@ class GenerationParameters:
             values["trace_height"] = values.pop("trace_depth")
         allowed = {
             "base_thickness", "trace_height", "trace_depth",
-            "trace_width", "outline_margin", "snap_tolerance"
+            "trace_width", "outline_margin", "snap_tolerance",
+            "stacking_pins", "stacking_pin_diameter", "stacking_pin_height",
+            "stacking_clearance", "layer_role", "stack_index",
         }
         unknown = set(values) - allowed
         if unknown:
             raise ValueError(f"Unknown generation parameter(s): {', '.join(sorted(unknown))}")
         try:
-            params = cls(**{
-                key: float(value)
-                for key, value in values.items()
-                if key in {"base_thickness", "trace_height", "trace_width", "outline_margin", "snap_tolerance"}
-            })
+            kwargs = {}
+            for key, val in values.items():
+                if key in {"base_thickness", "trace_height", "trace_width", "outline_margin",
+                            "snap_tolerance", "stacking_pin_diameter", "stacking_pin_height", "stacking_clearance"}:
+                    kwargs[key] = float(val)
+                elif key == "stacking_pins":
+                    kwargs[key] = bool(val) if not isinstance(val, str) else val.lower() in ("1", "true", "yes", "on")
+                elif key == "layer_role":
+                    kwargs[key] = str(val).lower()
+                elif key == "stack_index":
+                    kwargs[key] = int(val)
+            params = cls(**kwargs)
         except (TypeError, ValueError) as exc:
-            raise ValueError("Generation parameters must be numeric") from exc
+            raise ValueError("Generation parameters formatting error") from exc
         return params.validate()
 
 
 
 def points_from_pairs(values: Sequence[Sequence[float]]) -> tuple[Point, ...]:
     return tuple(Point(float(pair[0]), float(pair[1])) for pair in values)
+
